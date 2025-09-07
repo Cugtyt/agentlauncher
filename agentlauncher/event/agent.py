@@ -39,3 +39,8 @@ class AgentFinishEvent(EventType):
 class AgentRuntimeErrorEvent(EventType):
     agent_id: str
     error: str
+
+
+@dataclass
+class AgentDeletedEvent(EventType):
+    agent_id: str

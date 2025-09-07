@@ -1,5 +1,6 @@
 from .agent import (
     AgentCreateEvent,
+    AgentDeletedEvent,
     AgentFinishEvent,
     AgentRuntimeErrorEvent,
     AgentStartEvent,
@@ -34,4 +35,5 @@ __all__ = [
     "ToolExecStartEvent",
     "ToolExecFinishEvent",
     "ToolExecErrorEvent",
+    "AgentDeletedEvent",
 ]

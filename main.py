@@ -41,6 +41,7 @@ async def main() -> None:
         ],
         llm_handler_name="gpt-4",
     )
+    print(launcher.final_result)
 
 
 if __name__ == "__main__":

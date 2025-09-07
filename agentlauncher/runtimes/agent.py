@@ -1,5 +1,6 @@
 from agentlauncher.event import (
     AgentCreateEvent,
+    AgentDeletedEvent,
     AgentFinishEvent,
     AgentRuntimeErrorEvent,
     AgentStartEvent,
@@ -110,12 +111,13 @@ class Agent:
 class AgentRuntime:
     def __init__(self, event_bus: EventBus):
         self.event_bus = event_bus
-        self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_start)
+        self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_create)
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tool_exec_result)
+        self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.agents: dict[str, Agent] = {}
 
-    async def handle_agent_start(self, event: AgentCreateEvent) -> None:
+    async def handle_agent_create(self, event: AgentCreateEvent) -> None:
         if event.agent_id in self.agents:
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
@@ -159,3 +161,15 @@ class AgentRuntime:
             )
             return
         await agent.handle_tool_exec_result(event.tool_results)
+
+    async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
+        if event.agent_id in self.agents:
+            del self.agents[event.agent_id]
+            await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+        else:
+            await self.event_bus.emit(
+                AgentRuntimeErrorEvent(
+                    agent_id=event.agent_id,
+                    error="Agent not found on finish.",
+                )
+            )
