@@ -277,7 +277,7 @@ async def register(launcher: AgentLauncher) -> None:
         },
     )
 
-    await launcher.register_llm_handler(
+    await launcher.register_main_agent_llm_handler(
         name="gpt-4",
         function=gpt_handler,
     )

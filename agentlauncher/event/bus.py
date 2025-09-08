@@ -1,11 +1,18 @@
 import asyncio
+import enum
 from typing import Any
 
 from .type import EventHandler, EventType
 
 
+class EventVerboseLevel(enum.IntEnum):
+    SILENT = 0
+    BASIC = 1
+    DETAILED = 2
+
+
 class EventBus:
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: EventVerboseLevel = EventVerboseLevel.SILENT):
         self._subscribers: dict[type[EventType], list[EventHandler[Any]]] = {}
         self._verbose = verbose
 
@@ -19,17 +26,16 @@ class EventBus:
     async def emit(self, event: EventType) -> None:
         event_type = type(event)
         handlers = self._subscribers.get(event_type, [])
-        if self._verbose:
-            self.log_event(event)
+        self.log_event(event)
         await asyncio.gather(*(handler(event) for handler in handlers))
 
-    def verbose(self) -> None:
-        self._verbose = True
-
-    def silent(self) -> None:
-        self._verbose = False
-
     def log_event(self, event: EventType) -> None:
+        if self._verbose == EventVerboseLevel.SILENT:
+            return
+        if self._verbose == EventVerboseLevel.BASIC:
+            print(f"Event emitted: {event.__class__.__name__}")
+            return
+
         print(f"----- Event emitted: {event.__class__.__name__} -----")
         print(event)
         print("-------------------------")

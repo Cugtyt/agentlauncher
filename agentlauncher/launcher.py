@@ -1,17 +1,29 @@
-import uuid
-
-from agentlauncher.event import AgentCreateEvent, AgentFinishEvent, EventBus
-from agentlauncher.runtimes import AgentRuntime, LLMRuntime, ToolRuntime
+from agentlauncher.event import (
+    EventBus,
+    EventVerboseLevel,
+    TaskCreateEvent,
+    TaskFinishEvent,
+)
+from agentlauncher.runtimes import (
+    AGENT_0_SYSTEM_PROMPT,
+    AgentRuntime,
+    LLMRuntime,
+    ToolRuntime,
+)
 
 
 class AgentLauncher:
-    def __init__(self, verbose: bool = False):
+    def __init__(
+        self,
+        system_prompt: str = AGENT_0_SYSTEM_PROMPT,
+        verbose: EventVerboseLevel = EventVerboseLevel.SILENT,
+    ):
         self.event_bus = EventBus(verbose=verbose)
-
+        self.system_prompt = system_prompt
         self.agent_runtime = AgentRuntime(self.event_bus)
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus)
-        self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
+        self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self.final_result: str | None = None
 
     async def register_tool(
@@ -19,32 +31,32 @@ class AgentLauncher:
     ):
         await self.tool_runtime.register(name, function, description, parameters)
 
-    async def register_llm_handler(self, name: str, function):
-        await self.llm_runtime.register(name, function)
+    async def register_main_agent_llm_handler(self, name: str, function):
+        await self.llm_runtime.set_main_agent_handler(function)
 
-    async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
+    async def register_sub_agent_llm_handler(self, name: str, function):
+        await self.llm_runtime.set_sub_agent_handler(function)
+
+    async def handle_task_finish(self, event: TaskFinishEvent) -> None:
+        if event.agent_id != "agent_0":
+            return
         self.final_result = event.result
 
     async def run(
         self,
         task: str,
-        system_prompt: str,
-        llm_handler_name: str,
-        tool_names: list[str] | None = None,
         conversation=None,
     ) -> None:
+        self.tool_runtime.setup()
         if conversation is None:
             conversation = []
-        if tool_names is None:
-            tool_names = list(self.tool_runtime.tools.keys())
-        agent_id = str(uuid.uuid4())
         await self.event_bus.emit(
-            AgentCreateEvent(
-                agent_id=agent_id,
+            TaskCreateEvent(
                 task=task,
                 conversation=conversation,
-                system_prompt=system_prompt,
-                llm_handler_name=llm_handler_name,
-                tool_schemas=self.tool_runtime.get_tool_schemas(tool_names),
+                system_prompt=self.system_prompt,
+                tool_schemas=self.tool_runtime.get_tool_schemas(
+                    list(self.tool_runtime.tools.keys())
+                ),
             )
         )

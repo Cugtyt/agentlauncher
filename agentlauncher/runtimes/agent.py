@@ -7,6 +7,8 @@ from agentlauncher.event import (
     EventBus,
     LLMRequestEvent,
     LLMResponseEvent,
+    TaskCreateEvent,
+    TaskFinishEvent,
     ToolCall,
     ToolsExecRequestEvent,
     ToolsExecResultsEvent,
@@ -21,6 +23,8 @@ from agentlauncher.llm import (
     UserMessage,
 )
 
+from .shared import AGENT_0_NAME, AGENT_0_SYSTEM_PROMPT
+
 
 class Agent:
     def __init__(
@@ -30,16 +34,14 @@ class Agent:
         conversation: list[
             UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage
         ],
-        system_prompt: str,
-        llm_handler_name: str,
         tool_schemas: list[ToolSchema],
         event_bus: EventBus,
+        system_prompt: str | None = None,
     ):
         self.agent_id = agent_id
         self.task = task
         self.conversation = conversation
         self.system_prompt = system_prompt
-        self.llm_handler_name = llm_handler_name
         self.tool_schemas = tool_schemas
         self.event_bus = event_bus
 
@@ -49,16 +51,18 @@ class Agent:
             *self.conversation,
             UserMessage(content=self.task),
         ]
-        message_list = [
-            SystemMessage(content=self.system_prompt),
-            *self.conversation,
-        ]
+        if not self.system_prompt:
+            message_list = [*self.conversation]
+        else:
+            message_list = [
+                SystemMessage(content=self.system_prompt),
+                *self.conversation,
+            ]
         await self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
                 messages=message_list,
                 tool_schemas=self.tool_schemas,
-                llm_handler_name=self.llm_handler_name,
             )
         )
 
@@ -94,16 +98,18 @@ class Agent:
                 for tr in tool_results
             ]
         )
-        message_list = [
-            SystemMessage(content=self.system_prompt),
-            *self.conversation,
-        ]
+        if not self.system_prompt:
+            message_list = [*self.conversation]
+        else:
+            message_list = [
+                SystemMessage(content=self.system_prompt),
+                *self.conversation,
+            ]
         await self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
                 messages=message_list,
                 tool_schemas=self.tool_schemas,
-                llm_handler_name=self.llm_handler_name,
             )
         )
 
@@ -115,7 +121,22 @@ class AgentRuntime:
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tool_exec_result)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
+        self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
         self.agents: dict[str, Agent] = {}
+
+    async def handle_task_create(self, event: TaskCreateEvent) -> None:
+        if AGENT_0_NAME not in self.agents:
+            await self.event_bus.emit(
+                AgentCreateEvent(
+                    agent_id=AGENT_0_NAME,
+                    task=event.task,
+                    conversation=event.conversation or [],
+                    system_prompt=event.system_prompt or AGENT_0_SYSTEM_PROMPT,
+                    tool_schemas=event.tool_schemas,
+                )
+            )
+        else:
+            await self.agents[AGENT_0_NAME].start()
 
     async def handle_agent_create(self, event: AgentCreateEvent) -> None:
         if event.agent_id in self.agents:
@@ -132,7 +153,6 @@ class AgentRuntime:
             conversation=event.conversation or [],
             system_prompt=event.system_prompt or "You are a helpful assistant.",
             event_bus=self.event_bus,
-            llm_handler_name=event.llm_handler_name,
             tool_schemas=event.tool_schemas,
         )
         await self.agents[event.agent_id].start()
@@ -164,8 +184,12 @@ class AgentRuntime:
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
         if event.agent_id in self.agents:
-            del self.agents[event.agent_id]
-            await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+            if event.agent_id != AGENT_0_NAME:
+                del self.agents[event.agent_id]
+                await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+            await self.event_bus.emit(
+                TaskFinishEvent(agent_id=event.agent_id, result=event.result)
+            )
         else:
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(

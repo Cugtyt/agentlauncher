@@ -12,34 +12,17 @@ from .type import EventType
 
 
 @dataclass
-class AgentCreateEvent(EventType):
-    agent_id: str
+class TaskCreateEvent(EventType):
     task: str
     tool_schemas: list[ToolSchema]
+    system_prompt: str | None = None
     conversation: (
         list[UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage]
         | None
     ) = None
-    system_prompt: str | None = None
 
 
 @dataclass
-class AgentStartEvent(EventType):
-    agent_id: str
-
-
-@dataclass
-class AgentFinishEvent(EventType):
+class TaskFinishEvent(EventType):
     agent_id: str
     result: str
-
-
-@dataclass
-class AgentRuntimeErrorEvent(EventType):
-    agent_id: str
-    error: str
-
-
-@dataclass
-class AgentDeletedEvent(EventType):
-    agent_id: str

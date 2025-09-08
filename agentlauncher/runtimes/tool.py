@@ -1,9 +1,11 @@
 import asyncio
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
 from agentlauncher.event import (
+    AgentFinishEvent,
     EventBus,
     ToolExecErrorEvent,
     ToolExecFinishEvent,
@@ -13,6 +15,7 @@ from agentlauncher.event import (
     ToolsExecRequestEvent,
     ToolsExecResultsEvent,
 )
+from agentlauncher.event.agent import AgentCreateEvent
 from agentlauncher.llm import ToolSchema
 
 
@@ -28,7 +31,56 @@ class ToolRuntime:
     ):
         self.event_bus = event_bus
         self.tools: dict[str, Tool] = {}
+
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tool_exec_request)
+        self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
+        self.sub_agent_results: dict[str, str | None] = {}
+
+    def setup(self) -> None:
+        self.tools["create_sub_agent"] = Tool(
+            name="create_sub_agent",
+            function=self._create_sub_agent_tool,
+            description="Create a sub-agent to handle a specific task.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The task for the sub-agent to accomplish.",
+                    },
+                    "tool_name_list": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of tool names that the sub-agent can use, "
+                        "the tool names are from your tool list."
+                        f"available tools are: {', '.join(self.tools.keys())}",
+                    },
+                },
+                "required": ["task", "tool_name_list"],
+            },
+        )
+
+    async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
+        if event.agent_id not in self.sub_agent_results:
+            return
+        self.sub_agent_results[event.agent_id] = event.result
+
+    async def _create_sub_agent_tool(self, task: str, tool_name_list: list[str]) -> str:
+        agent_id = str(uuid.uuid4())
+        await self.event_bus.emit(
+            AgentCreateEvent(
+                agent_id=agent_id,
+                task=task,
+                tool_schemas=self.get_tool_schemas(tool_name_list),
+            )
+        )
+        self.sub_agent_results[agent_id] = None
+        while self.sub_agent_results[agent_id] is None:
+            await asyncio.sleep(0.5)
+
+        result = self.sub_agent_results[agent_id]
+        del self.sub_agent_results[agent_id]
+        return result if result is not None else ""
 
     async def register(
         self,

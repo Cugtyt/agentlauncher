@@ -15,7 +15,6 @@ from .type import EventType
 @dataclass
 class LLMRequestEvent(EventType):
     agent_id: str
-    llm_handler_name: str
     messages: list[
         UserMessage
         | AssistantMessage
@@ -29,7 +28,6 @@ class LLMRequestEvent(EventType):
 @dataclass
 class LLMResponseEvent(EventType):
     agent_id: str
-    llm_handler_name: str
     response: list[AssistantMessage | ToolCallMessage]
 
 

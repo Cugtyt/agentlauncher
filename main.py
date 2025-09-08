@@ -2,12 +2,15 @@ import asyncio
 
 from agentlauncher import (
     AgentLauncher,
+    EventVerboseLevel,
 )
 from helper import register
 
 
 async def main() -> None:
-    launcher = AgentLauncher(verbose=True)
+    launcher = AgentLauncher(
+        verbose=EventVerboseLevel.DETAILED,
+    )
 
     await register(launcher)
     await launcher.run(
@@ -23,23 +26,6 @@ async def main() -> None:
             "8. Analyze this text: 'The quick brown fox jumps over the lazy dog'\n"
             "Please use the appropriate tools for each task and provide a summary."
         ),
-        system_prompt=(
-            "You are a helpful AI assistant with access to various tools. "
-            "For each user request, think about which tools you need and call them efficiently. "  # noqa: E501
-            "You can call multiple tools at once when appropriate. "
-            "Always explain your reasoning and provide clear, organized results."
-        ),
-        tool_names=[
-            "calculate",
-            "get_weather",
-            "convert_temperature",
-            "get_current_time",
-            "generate_random_number",
-            "search_web",
-            "get_stock_price",
-            "text_analysis",
-        ],
-        llm_handler_name="gpt-4",
     )
     print(launcher.final_result)
 

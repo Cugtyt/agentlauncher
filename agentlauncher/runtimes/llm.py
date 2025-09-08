@@ -8,6 +8,8 @@ from agentlauncher.llm import (
     LLMHandler,
 )
 
+from .shared import AGENT_0_NAME
+
 
 class LLMRuntime:
     def __init__(
@@ -15,26 +17,27 @@ class LLMRuntime:
         event_bus: EventBus,
     ):
         self.event_bus = event_bus
-        self.llm_handlers: dict[str, LLMHandler] = {}
+        self.main_agent_llm_handler: LLMHandler | None = None
+        self.sub_agent_llm_handler: LLMHandler | None = None
         self.event_bus.subscribe(LLMRequestEvent, self.handle_llm_request)
 
-    async def register(self, name: str, handler: LLMHandler) -> None:
-        if name in self.llm_handlers:
-            await self.event_bus.emit(
-                LLMRuntimeErrorEvent(
-                    agent_id=None,
-                    error=f"LLM handler '{name}' is already registered.",
-                )
-            )
-        self.llm_handlers[name] = handler
+    async def set_main_agent_handler(self, handler: LLMHandler) -> None:
+        self.main_agent_llm_handler = handler
+
+    async def set_sub_agent_handler(self, handler: LLMHandler) -> None:
+        self.sub_agent_llm_handler = handler
 
     async def handle_llm_request(self, event: LLMRequestEvent) -> None:
-        handler = self.llm_handlers.get(event.llm_handler_name)
+        handler = (
+            self.main_agent_llm_handler
+            if event.agent_id == AGENT_0_NAME or not self.sub_agent_llm_handler
+            else self.sub_agent_llm_handler
+        )
         if not handler:
             await self.event_bus.emit(
                 LLMRuntimeErrorEvent(
                     agent_id=event.agent_id,
-                    error=f"LLM handler '{event.llm_handler_name}' not found.",
+                    error="LLM handler not found.",
                 )
             )
             return
@@ -43,7 +46,6 @@ class LLMRuntime:
             await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.agent_id,
-                    llm_handler_name=event.llm_handler_name,
                     response=response,
                 )
             )
