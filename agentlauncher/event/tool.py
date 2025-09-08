@@ -32,7 +32,7 @@ class ToolsExecResultsEvent(EventType):
 
 @dataclass
 class ToolRuntimeErrorEvent(EventType):
-    agent_id: str | None
+    agent_id: str
     error: str
 
 

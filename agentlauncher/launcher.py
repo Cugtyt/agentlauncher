@@ -5,6 +5,7 @@ from agentlauncher.event import (
     TaskFinishEvent,
 )
 from agentlauncher.runtimes import (
+    AGENT_0_NAME,
     AGENT_0_SYSTEM_PROMPT,
     AgentRuntime,
     LLMRuntime,
@@ -38,7 +39,7 @@ class AgentLauncher:
         await self.llm_runtime.set_sub_agent_handler(function)
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
-        if event.agent_id != "agent_0":
+        if event.agent_id != AGENT_0_NAME:
             return
         self.final_result = event.result
 

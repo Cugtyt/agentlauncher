@@ -23,6 +23,7 @@ class LLMRequestEvent(EventType):
         | ToolResultMessage
     ]
     tool_schemas: list[ToolSchema]
+    retry_count: int = 0
 
 
 @dataclass
@@ -35,3 +36,4 @@ class LLMResponseEvent(EventType):
 class LLMRuntimeErrorEvent(EventType):
     agent_id: str | None
     error: str
+    request_event: LLMRequestEvent

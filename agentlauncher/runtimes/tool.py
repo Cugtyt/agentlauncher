@@ -34,7 +34,8 @@ class ToolRuntime:
 
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tool_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
-        self.sub_agent_results: dict[str, str | None] = {}
+        self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
+        self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
     def setup(self) -> None:
         self.tools["create_sub_agent"] = Tool(
@@ -61,12 +62,17 @@ class ToolRuntime:
         )
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
-        if event.agent_id not in self.sub_agent_results:
+        if event.agent_id not in self.sub_agent_futures:
             return
-        self.sub_agent_results[event.agent_id] = event.result
+        future = self.sub_agent_futures[event.agent_id]
+        if not future.done():
+            future.set_result(event.result or "")
 
     async def _create_sub_agent_tool(self, task: str, tool_name_list: list[str]) -> str:
         agent_id = str(uuid.uuid4())
+        future = asyncio.get_event_loop().create_future()
+        self.sub_agent_futures[agent_id] = future
+
         await self.event_bus.emit(
             AgentCreateEvent(
                 agent_id=agent_id,
@@ -74,13 +80,12 @@ class ToolRuntime:
                 tool_schemas=self.get_tool_schemas(tool_name_list),
             )
         )
-        self.sub_agent_results[agent_id] = None
-        while self.sub_agent_results[agent_id] is None:
-            await asyncio.sleep(0.5)
 
-        result = self.sub_agent_results[agent_id]
-        del self.sub_agent_results[agent_id]
-        return result if result is not None else ""
+        try:
+            result = await future
+            return result
+        finally:
+            del self.sub_agent_futures[agent_id]
 
     async def register(
         self,
@@ -90,12 +95,7 @@ class ToolRuntime:
         parameters: dict[str, Any],
     ):
         if name in self.tools:
-            await self.event_bus.emit(
-                ToolRuntimeErrorEvent(
-                    agent_id=None,
-                    error=f"Tool '{name}' is already registered.",
-                )
-            )
+            raise ValueError(f"Tool '{name}' is already registered.")
         tool = Tool(
             name=name, function=function, description=description, parameters=parameters
         )
@@ -189,3 +189,11 @@ class ToolRuntime:
 
     def get_tool_schemas(self, tool_names: list[str]) -> list[ToolSchema]:
         return [tool for name, tool in self.tools.items() if name in tool_names]
+
+    async def handle_tool_runtime_error(self, event: ToolRuntimeErrorEvent) -> None:
+        await self.event_bus.emit(
+            ToolsExecResultsEvent(
+                agent_id=event.agent_id,
+                tool_results=[],
+            )
+        )

@@ -122,6 +122,9 @@ class AgentRuntime:
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tool_exec_result)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
+        self.event_bus.subscribe(
+            AgentRuntimeErrorEvent, self.handle_agent_runtime_error
+        )
         self.agents: dict[str, Agent] = {}
 
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
@@ -151,7 +154,7 @@ class AgentRuntime:
             agent_id=event.agent_id,
             task=event.task,
             conversation=event.conversation or [],
-            system_prompt=event.system_prompt or "You are a helpful assistant.",
+            system_prompt=event.system_prompt,
             event_bus=self.event_bus,
             tool_schemas=event.tool_schemas,
         )
@@ -187,9 +190,10 @@ class AgentRuntime:
             if event.agent_id != AGENT_0_NAME:
                 del self.agents[event.agent_id]
                 await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
-            await self.event_bus.emit(
-                TaskFinishEvent(agent_id=event.agent_id, result=event.result)
-            )
+            else:
+                await self.event_bus.emit(
+                    TaskFinishEvent(agent_id=event.agent_id, result=event.result)
+                )
         else:
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
@@ -197,3 +201,14 @@ class AgentRuntime:
                     error="Agent not found on finish.",
                 )
             )
+
+    async def handle_agent_runtime_error(self, event: AgentRuntimeErrorEvent) -> None:
+        if event.agent_id and event.agent_id in self.agents:
+            del self.agents[event.agent_id]
+            await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+        await self.event_bus.emit(
+            TaskFinishEvent(
+                agent_id=event.agent_id or "unknown",
+                result=f"Agent encountered an error: {event.error}",
+            )
+        )

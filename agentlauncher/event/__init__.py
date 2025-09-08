@@ -37,6 +37,7 @@ __all__ = [
     "ToolExecFinishEvent",
     "ToolExecErrorEvent",
     "AgentDeletedEvent",
+    "AgentRuntimeErrorEvent",
     "TaskCreateEvent",
     "TaskFinishEvent",
     "EventVerboseLevel",
