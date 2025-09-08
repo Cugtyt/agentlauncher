@@ -32,7 +32,7 @@ class ToolRuntime:
         self.event_bus = event_bus
         self.tools: dict[str, Tool] = {}
 
-        self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tool_exec_request)
+        self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tools_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
@@ -121,9 +121,7 @@ class ToolRuntime:
             if asyncio.iscoroutinefunction(tool.function):
                 result = await tool.function(**arguments)
             else:
-                result = tool.function(**arguments)
-                if asyncio.iscoroutine(result):
-                    result = await result
+                result = await asyncio.to_thread(tool.function, **arguments)
 
             await self.event_bus.emit(
                 ToolExecFinishEvent(
@@ -145,20 +143,21 @@ class ToolRuntime:
             )
             raise e
 
-    async def handle_tool_exec_request(self, event: ToolsExecRequestEvent) -> None:
-        for tool_call in event.tool_calls:
-            if tool_call.tool_name not in self.tools:
-                await self.event_bus.emit(
-                    ToolRuntimeErrorEvent(
-                        agent_id=event.agent_id,
-                        error=f"Tool '{tool_call.tool_name}' not found.",
-                    )
+    async def handle_tools_exec_request(self, event: ToolsExecRequestEvent) -> None:
+        missing_tools = [
+            tc.tool_name for tc in event.tool_calls if tc.tool_name not in self.tools
+        ]
+        if missing_tools:
+            await self.event_bus.emit(
+                ToolRuntimeErrorEvent(
+                    agent_id=event.agent_id,
+                    error=f"Tool(s) not found: {', '.join(missing_tools)}",
                 )
-                return
+            )
+            return
 
-        tasks = []
-        for tool_call in event.tool_calls:
-            tasks.append(
+        tasks = [
+            asyncio.create_task(
                 self.tool_exec(
                     tool_name=tool_call.tool_name,
                     arguments=tool_call.arguments,
@@ -166,6 +165,8 @@ class ToolRuntime:
                     tool_call_id=tool_call.tool_call_id,
                 )
             )
+            for tool_call in event.tool_calls
+        ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

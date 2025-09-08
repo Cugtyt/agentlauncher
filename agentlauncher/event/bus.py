@@ -1,5 +1,6 @@
 import asyncio
 import enum
+from datetime import datetime
 from typing import Any
 
 from .type import EventHandler, EventType
@@ -32,10 +33,13 @@ class EventBus:
     async def log_event(self, event: EventType) -> None:
         if self._verbose == EventVerboseLevel.SILENT:
             return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
         if self._verbose == EventVerboseLevel.BASIC:
-            print(f"Event emitted: {event.__class__.__name__}")
+            print(f"[{timestamp}] Event emitted: {event.__class__.__name__}")
             return
 
-        print(f"----- Event emitted: {event.__class__.__name__} -----")
+        print(f"----- [{timestamp}] Event emitted: {event.__class__.__name__} -----")
         print(event)
         print("-------------------------")
