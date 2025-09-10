@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from agentlauncher.llm import (
@@ -29,7 +30,7 @@ class LLMRequestEvent(EventType):
 @dataclass
 class LLMResponseEvent(EventType):
     agent_id: str
-    response: list[AssistantMessage | ToolCallMessage]
+    response: Sequence[AssistantMessage | ToolCallMessage]
 
 
 @dataclass

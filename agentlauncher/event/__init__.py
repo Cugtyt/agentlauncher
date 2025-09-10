@@ -7,6 +7,7 @@ from .agent import (
 )
 from .bus import EventBus, EventVerboseLevel
 from .llm import LLMRequestEvent, LLMResponseEvent, LLMRuntimeErrorEvent
+from .message import MessageAddEvent
 from .task import TaskCreateEvent, TaskFinishEvent
 from .tool import (
     ToolCall,
@@ -41,4 +42,5 @@ __all__ = [
     "TaskCreateEvent",
     "TaskFinishEvent",
     "EventVerboseLevel",
+    "MessageAddEvent",
 ]

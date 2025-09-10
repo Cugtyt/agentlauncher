@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from agentlauncher.event import (
     AgentCreateEvent,
     AgentDeletedEvent,
@@ -67,7 +69,7 @@ class Agent:
         )
 
     async def handle_llm_response(
-        self, response: list[AssistantMessage | ToolCallMessage]
+        self, response: Sequence[AssistantMessage | ToolCallMessage]
     ) -> None:
         self.conversation.extend(response)
         tool_calls = [
