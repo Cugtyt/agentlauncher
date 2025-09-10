@@ -1,3 +1,5 @@
+import asyncio
+
 from agentlauncher.event import (
     EventBus,
     EventVerboseLevel,
@@ -25,7 +27,7 @@ class AgentLauncher:
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus)
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
-        self.final_result: str | None = None
+        self._final_result: asyncio.Future[str] | None = None
 
     async def register_tool(
         self, name: str, function, description: str, parameters: dict
@@ -41,14 +43,16 @@ class AgentLauncher:
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
         if event.agent_id != AGENT_0_NAME:
             return
-        self.final_result = event.result
+        if self._final_result and not self._final_result.done():
+            self._final_result.set_result(event.result or "")
 
     async def run(
         self,
         task: str,
         conversation=None,
-    ) -> None:
+    ) -> str:
         self.tool_runtime.setup()
+        self._final_result = asyncio.get_event_loop().create_future()
         if conversation is None:
             conversation = []
         await self.event_bus.emit(
@@ -61,3 +65,4 @@ class AgentLauncher:
                 ),
             )
         )
+        return await self._final_result

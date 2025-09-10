@@ -13,7 +13,7 @@ async def main() -> None:
     )
 
     await register(launcher)
-    await launcher.run(
+    result = await launcher.run(
         task=(
             "I need you to help me with several tasks:\n"
             "1. Calculate what's 15 * 23 + 67\n"
@@ -27,7 +27,7 @@ async def main() -> None:
             "Please use the appropriate tools for each task and provide a summary."
         ),
     )
-    print(launcher.final_result)
+    print("Final Result:\n", result)
 
 
 if __name__ == "__main__":

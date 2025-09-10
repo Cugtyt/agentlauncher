@@ -37,7 +37,12 @@ class EventBus:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
         if self._verbose == EventVerboseLevel.BASIC:
-            print(f"[{timestamp}] Event emitted: {event.__class__.__name__}")
+            agent_id = (
+                f" (agent_id: {getattr(event, 'agent_id', 'N/A')})"
+                if hasattr(event, "agent_id")
+                else ""
+            )
+            print(f"[{timestamp}] Event emitted: {event.__class__.__name__}{agent_id}")
             return
 
         print(f"----- [{timestamp}] Event emitted: {event.__class__.__name__} -----")
