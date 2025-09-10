@@ -157,13 +157,11 @@ class ToolRuntime:
             return
 
         tasks = [
-            asyncio.create_task(
-                self.tool_exec(
-                    tool_name=tool_call.tool_name,
-                    arguments=tool_call.arguments,
-                    agent_id=event.agent_id,
-                    tool_call_id=tool_call.tool_call_id,
-                )
+            self.tool_exec(
+                tool_name=tool_call.tool_name,
+                arguments=tool_call.arguments,
+                agent_id=event.agent_id,
+                tool_call_id=tool_call.tool_call_id,
             )
             for tool_call in event.tool_calls
         ]

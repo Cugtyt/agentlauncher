@@ -1,14 +1,13 @@
 import asyncio
 import json
-from typing import Any, Literal
+from typing import Any
 
-from azure.identity import (
+from azure.identity.aio import (
     DefaultAzureCredential,
     get_bearer_token_provider,
 )
-from openai import AzureOpenAI
+from openai import AsyncAzureOpenAI
 from openai.types.responses import (
-    Response,
     ResponseFunctionToolCall,
     ResponseFunctionToolCallParam,
     ResponseOutputMessage,
@@ -28,31 +27,6 @@ from agentlauncher.llm import (
     UserMessage,
 )
 
-token_provider = get_bearer_token_provider(
-    DefaultAzureCredential(),
-    "https://cognitiveservices.azure.com/.default",
-)
-
-client = AzureOpenAI(
-    base_url="https://smarttsg-gpt.openai.azure.com/openai/v1/",
-    azure_ad_token_provider=token_provider,
-    api_version="preview",
-)
-
-
-def get_response_from_gpt(
-    messages: list[dict[str, str]],
-    tools: list[dict[str, Any]],
-    tool_choice: Literal["auto", "required"] = "auto",
-) -> Response:
-    resp = client.responses.create(
-        model="gpt-4.1",
-        tools=tools,  # type: ignore
-        input=messages,  # type: ignore
-        tool_choice=tool_choice,
-    )
-    return resp
-
 
 async def gpt_handler(
     messages: list[
@@ -64,6 +38,17 @@ async def gpt_handler(
     ],
     tools: list[ToolSchema],
 ) -> ResponseMessageList:
+    credential = DefaultAzureCredential()
+    token_provider = get_bearer_token_provider(
+        credential,
+        "https://cognitiveservices.azure.com/.default",
+    )
+    client = AsyncAzureOpenAI(
+        base_url="https://smarttsg-gpt.openai.azure.com/openai/v1/",
+        azure_ad_token_provider=token_provider,
+        api_version="preview",
+    )
+
     def convert_message(
         message: UserMessage
         | AssistantMessage
@@ -103,7 +88,7 @@ async def gpt_handler(
         }
         for tool in tools
     ]
-    resp = client.responses.create(
+    resp = await client.responses.create(
         model="gpt-4.1",
         tools=gpt_tools,  # type: ignore
         input=gpt_messages,  # type: ignore
@@ -123,6 +108,8 @@ async def gpt_handler(
             result.append(
                 AssistantMessage(content=output.content[0].text)  # type: ignore
             )
+
+    await credential.close()
     return result
 
 
