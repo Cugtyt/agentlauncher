@@ -152,6 +152,34 @@ def text_analysis(text: str) -> str:
     return f"The text contains {word_count} words."
 
 
+def find_dates(month: str) -> str:
+    return f"Suggested dates: {month}-10, {month}-17, {month}-24."
+
+
+def suggest_speakers(topic: str) -> str:
+    return f"Keynote speakers in {topic}: Dr. Alice Smith, Prof. Bob Lee."
+
+
+def draft_agenda(sessions: int) -> str:
+    agenda = "\n".join([f"Session {i + 1}: Topic TBD" for i in range(sessions)])
+    return f"Draft agenda:\n{agenda}"
+
+
+def list_platforms() -> str:
+    return "Online platforms: Zoom, Microsoft Teams, Hopin."
+
+
+def estimate_budget(speakers: int, platform: str, marketing: int) -> str:
+    total = speakers * 1000 + 500 + marketing
+    return f"Estimated budget: Speaker fees ${speakers * 1000}, Platform ({platform})\
+          $500, Marketing ${marketing}, Total ${total}."
+
+
+def draft_email(event_name: str) -> str:
+    return f"Subject: Invitation to {event_name}\nDear Attendee,\n\
+        You are invited to our virtual conference. More details to follow."
+
+
 async def register(launcher: AgentLauncher) -> None:
     await launcher.register_tool(
         name="calculate",
@@ -260,6 +288,91 @@ async def register(launcher: AgentLauncher) -> None:
                 "text": {"type": "string", "description": "The text to analyze."},
             },
             "required": ["text"],
+        },
+    )
+
+    await launcher.register_tool(
+        name="find_dates",
+        function=find_dates,
+        description="Suggest three suitable dates in the given month"
+        " (format: YYYY-MM).",
+        parameters={
+            "type": "object",
+            "properties": {
+                "month": {"type": "string", "description": "Month in YYYY-MM format."},
+            },
+            "required": ["month"],
+        },
+    )
+
+    await launcher.register_tool(
+        name="suggest_speakers",
+        function=suggest_speakers,
+        description="Suggest two keynote speakers for a given topic.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "description": "The topic for keynote speakers.",
+                },
+            },
+            "required": ["topic"],
+        },
+    )
+
+    await launcher.register_tool(
+        name="draft_agenda",
+        function=draft_agenda,
+        description="Prepare a draft agenda with a given number of sessions.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "sessions": {"type": "integer", "description": "Number of sessions."},
+            },
+            "required": ["sessions"],
+        },
+    )
+
+    await launcher.register_tool(
+        name="list_platforms",
+        function=list_platforms,
+        description="List three online platforms suitable for hosting a conference.",
+        parameters={
+            "type": "object",
+            "properties": {},
+        },
+    )
+
+    await launcher.register_tool(
+        name="estimate_budget",
+        function=estimate_budget,
+        description="Estimate a budget for the event, including speaker fees,"
+        " platform costs, and marketing.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "speakers": {"type": "integer", "description": "Number of speakers."},
+                "platform": {"type": "string", "description": "Platform name."},
+                "marketing": {
+                    "type": "integer",
+                    "description": "Marketing budget in USD.",
+                },
+            },
+            "required": ["speakers", "platform", "marketing"],
+        },
+    )
+
+    await launcher.register_tool(
+        name="draft_email",
+        function=draft_email,
+        description="Draft an invitation email for the event.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "event_name": {"type": "string", "description": "Name of the event."},
+            },
+            "required": ["event_name"],
         },
     )
 

@@ -6,21 +6,20 @@ from agentlauncher import (
 )
 from helper import register
 
-test_task = """I need you to help me with several tasks:
-1. Calculate what's 15 * 23 + 67
-2. Check the weather in Tokyo and London
-3. Convert 98.6°F to Celsius
-4. Get the current time
-5. Generate a random number between 50 and 150
-6. Search the web for 'python programming tips'
-7. Get stock prices for AAPL and TSLA
-8. Analyze this text: 'The quick brown fox jumps over the lazy dog'
-Please use the appropriate tools for each task and provide a summary."""
+test_task = """You are to help me organize a virtual conference. Please:
+1. Find three suitable dates in the next month for the event.
+2. Research and suggest two keynote speakers in AI.
+3. Prepare a draft agenda with at least five sessions.
+4. List three online platforms suitable for hosting the conference.
+5. Estimate a budget for the event, including speaker fees, platform costs, and marketing.
+6. Draft an invitation email for potential attendees.
+7. Summarize all findings and provide a recommended plan of action.
+Each step may require different tools or information sources. Provide a clear summary."""
 
 
 async def main() -> None:
     launcher = AgentLauncher(
-        verbose=EventVerboseLevel.SILENT,
+        verbose=EventVerboseLevel.BASIC,
     )
 
     await register(launcher)
