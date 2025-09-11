@@ -11,5 +11,5 @@ type LLMHandler = Callable[
         RequestMessageList,
         RequestToolList,
     ],
-    Awaitable[ResponseMessageList],
+    Awaitable[ResponseMessageList] | ResponseMessageList,
 ]

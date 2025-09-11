@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .tool import ToolSchema
@@ -32,10 +33,10 @@ class ToolResultMessage:
     result: str
 
 
-type RequestMessageList = list[
+type RequestMessageList = Sequence[
     AssistantMessage | SystemMessage | ToolCallMessage | ToolResultMessage | UserMessage
 ]
 
-type RequestToolList = list[ToolSchema]
+type RequestToolList = Sequence[ToolSchema]
 
-type ResponseMessageList = list[AssistantMessage | ToolCallMessage]
+type ResponseMessageList = Sequence[AssistantMessage | ToolCallMessage]

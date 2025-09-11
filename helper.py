@@ -2,11 +2,11 @@ import asyncio
 import json
 from typing import Any
 
-from azure.identity.aio import (
+from azure.identity import (
     DefaultAzureCredential,
     get_bearer_token_provider,
 )
-from openai import AsyncAzureOpenAI
+from openai import AzureOpenAI
 from openai.types.responses import (
     ResponseFunctionToolCall,
     ResponseFunctionToolCallParam,
@@ -27,8 +27,19 @@ from agentlauncher.llm import (
     UserMessage,
 )
 
+credential = DefaultAzureCredential()
+token_provider = get_bearer_token_provider(
+    credential,
+    "https://cognitiveservices.azure.com/.default",
+)
+client = AzureOpenAI(
+    base_url="https://smarttsg-gpt.openai.azure.com/openai/v1/",
+    azure_ad_token_provider=token_provider,
+    api_version="preview",
+)
 
-async def gpt_handler(
+
+def gpt_handler(
     messages: list[
         UserMessage
         | AssistantMessage
@@ -38,17 +49,6 @@ async def gpt_handler(
     ],
     tools: list[ToolSchema],
 ) -> ResponseMessageList:
-    credential = DefaultAzureCredential()
-    token_provider = get_bearer_token_provider(
-        credential,
-        "https://cognitiveservices.azure.com/.default",
-    )
-    client = AsyncAzureOpenAI(
-        base_url="https://smarttsg-gpt.openai.azure.com/openai/v1/",
-        azure_ad_token_provider=token_provider,
-        api_version="preview",
-    )
-
     def convert_message(
         message: UserMessage
         | AssistantMessage
@@ -88,7 +88,7 @@ async def gpt_handler(
         }
         for tool in tools
     ]
-    resp = await client.responses.create(
+    resp = client.responses.create(
         model="gpt-4.1",
         tools=gpt_tools,  # type: ignore
         input=gpt_messages,  # type: ignore
@@ -109,7 +109,6 @@ async def gpt_handler(
                 AssistantMessage(content=output.content[0].text)  # type: ignore
             )
 
-    await credential.close()
     return result
 
 

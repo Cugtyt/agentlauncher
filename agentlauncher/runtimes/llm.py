@@ -1,3 +1,6 @@
+import asyncio
+from typing import cast
+
 from agentlauncher.event import (
     EventBus,
     LLMRequestEvent,
@@ -7,6 +10,7 @@ from agentlauncher.event import (
 from agentlauncher.llm import (
     LLMHandler,
 )
+from agentlauncher.llm.message import AssistantMessage, ResponseMessageList
 
 from .shared import AGENT_0_NAME
 
@@ -44,11 +48,16 @@ class LLMRuntime:
             )
             return
         try:
-            response = await handler(event.messages, event.tool_schemas)
+            if asyncio.iscoroutinefunction(handler):
+                response = await handler(event.messages, event.tool_schemas)
+            else:
+                response = await asyncio.to_thread(
+                    handler, event.messages, event.tool_schemas
+                )
             await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.agent_id,
-                    response=response,
+                    response=cast(ResponseMessageList, response),
                 )
             )
         except Exception as e:
@@ -69,7 +78,11 @@ class LLMRuntime:
                 )
             )
         else:
-            await self.event_bus.emit(LLMResponseEvent(
-                agent_id=event.request_event.agent_id,
-                response=[],
-            ))
+            await self.event_bus.emit(
+                LLMResponseEvent(
+                    agent_id=event.request_event.agent_id,
+                    response=[
+                        AssistantMessage(content="Runtime error: " + event.error)
+                    ],
+                )
+            )

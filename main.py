@@ -24,17 +24,18 @@ async def main() -> None:
     )
 
     await register(launcher)
+    await launcher.run(test_task)
 
-    while True:
-        task = input("Enter your task (or 'exit' to quit): ")
-        if task.lower() in ("exit", "quit"):
-            break
+    # while True:
+    #     task = input("Enter your task (or 'exit' to quit): ")
+    #     if task.lower() in ("exit", "quit"):
+    #         break
 
-        if task == '1':
-            task = test_task
+    #     if task == '1':
+    #         task = test_task
 
-        result = await launcher.run(task=task)
-        print("Final Result:\n", result)
+    #     result = await launcher.run(task=task)
+    #     print("Final Result:\n", result)
 
 
 if __name__ == "__main__":
