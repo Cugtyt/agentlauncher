@@ -20,11 +20,13 @@ Please use the appropriate tools for each task and provide a summary."""
 
 async def main() -> None:
     launcher = AgentLauncher(
-        verbose=EventVerboseLevel.BASIC,
+        verbose=EventVerboseLevel.SILENT,
     )
 
     await register(launcher)
     await launcher.run(test_task)
+    for message in launcher.message_runtime.history:
+        print(message)
 
     # while True:
     #     task = input("Enter your task (or 'exit' to quit): ")

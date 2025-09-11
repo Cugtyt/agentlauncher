@@ -89,7 +89,7 @@ class Agent:
             ToolsExecRequestEvent(agent_id=self.agent_id, tool_calls=tool_calls)
         )
 
-    async def handle_tool_exec_result(self, tool_results: list[ToolResult]) -> None:
+    async def handle_tools_exec_results(self, tool_results: list[ToolResult]) -> None:
         self.conversation.extend(
             [
                 ToolResultMessage(
@@ -121,7 +121,7 @@ class AgentRuntime:
         self.event_bus = event_bus
         self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_create)
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
-        self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tool_exec_result)
+        self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
         self.event_bus.subscribe(
@@ -175,7 +175,7 @@ class AgentRuntime:
 
         await agent.handle_llm_response(event.response)
 
-    async def handle_tool_exec_result(self, event: ToolsExecResultsEvent) -> None:
+    async def handle_tools_exec_results(self, event: ToolsExecResultsEvent) -> None:
         agent = self.agents.get(event.agent_id)
         if not agent:
             await self.event_bus.emit(
@@ -185,7 +185,7 @@ class AgentRuntime:
                 )
             )
             return
-        await agent.handle_tool_exec_result(event.tool_results)
+        await agent.handle_tools_exec_results(event.tool_results)
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
         if event.agent_id in self.agents:

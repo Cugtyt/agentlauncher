@@ -27,7 +27,7 @@ class AgentLauncher:
         self.agent_runtime = AgentRuntime(self.event_bus)
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus)
-        self.conversation_runtime = MessageRuntime(self.event_bus)
+        self.message_runtime = MessageRuntime(self.event_bus)
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self._final_result: asyncio.Future[str] | None = None
 
@@ -57,7 +57,7 @@ class AgentLauncher:
         await self.event_bus.emit(
             TaskCreateEvent(
                 task=task,
-                conversation=self.conversation_runtime.history,
+                conversation=self.message_runtime.history,
                 system_prompt=self.system_prompt,
                 tool_schemas=self.tool_runtime.get_tool_schemas(
                     list(self.tool_runtime.tools.keys())

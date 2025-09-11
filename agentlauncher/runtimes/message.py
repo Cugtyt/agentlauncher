@@ -3,7 +3,7 @@ from agentlauncher.event import (
     LLMResponseEvent,
     MessageAddEvent,
     TaskCreateEvent,
-    TaskFinishEvent,
+    ToolsExecResultsEvent,
 )
 from agentlauncher.llm import (
     AssistantMessage,
@@ -23,7 +23,7 @@ class MessageRuntime:
         self.event_bus = event_bus
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
-        self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
+        self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)
 
     async def handle_llm_response(self, event: LLMResponseEvent) -> None:
         if event.agent_id != AGENT_0_NAME:
@@ -41,12 +41,19 @@ class MessageRuntime:
             )
         )
 
-    async def handle_task_finish(self, event: TaskFinishEvent) -> None:
+    async def handle_tools_exec_results(self, event: ToolsExecResultsEvent) -> None:
         if event.agent_id != AGENT_0_NAME:
             return
-        self.history.append(AssistantMessage(content=event.result))
-        await self.event_bus.emit(
-            MessageAddEvent(
-                agent_id=AGENT_0_NAME, messages=[AssistantMessage(content=event.result)]
+        messages: list[ToolResultMessage] = []
+        for result in event.tool_results:
+            messages.append(
+                ToolResultMessage(
+                    tool_call_id=result.tool_call_id,
+                    tool_name=result.tool_name,
+                    result=result.result,
+                )
             )
+        self.history.extend(messages)
+        await self.event_bus.emit(
+            MessageAddEvent(agent_id=event.agent_id, messages=messages)
         )
