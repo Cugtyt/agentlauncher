@@ -1,6 +1,6 @@
 import asyncio
 
-from agentlauncher.event import (
+from agentlauncher.events import (
     EventBus,
     EventVerboseLevel,
     TaskCreateEvent,

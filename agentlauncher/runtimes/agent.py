@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from agentlauncher.event import (
+from agentlauncher.events import (
     AgentCreateEvent,
     AgentDeletedEvent,
     AgentFinishEvent,
@@ -15,8 +15,8 @@ from agentlauncher.event import (
     ToolsExecRequestEvent,
     ToolsExecResultsEvent,
 )
-from agentlauncher.event.tool import ToolResult
-from agentlauncher.llm import (
+from agentlauncher.events.tool import ToolResult
+from agentlauncher.llm_interface import (
     AssistantMessage,
     SystemMessage,
     ToolCallMessage,

@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from agentlauncher.event import (
+from agentlauncher.events import (
     AgentFinishEvent,
     EventBus,
     ToolExecErrorEvent,
@@ -15,8 +15,8 @@ from agentlauncher.event import (
     ToolsExecRequestEvent,
     ToolsExecResultsEvent,
 )
-from agentlauncher.event.agent import AgentCreateEvent
-from agentlauncher.llm import ToolSchema
+from agentlauncher.events.agent import AgentCreateEvent
+from agentlauncher.llm_interface import ToolSchema
 
 
 @dataclass

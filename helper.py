@@ -17,7 +17,7 @@ from openai.types.responses.response_input_param import FunctionCallOutput
 from agentlauncher import (
     AgentLauncher,
 )
-from agentlauncher.llm import (
+from agentlauncher.llm_interface import (
     AssistantMessage,
     ResponseMessageList,
     SystemMessage,

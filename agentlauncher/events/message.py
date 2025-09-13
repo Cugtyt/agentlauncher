@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from agentlauncher.llm import (
+from agentlauncher.llm_interface import (
     AssistantMessage,
     ToolCallMessage,
     ToolResultMessage,
