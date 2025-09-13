@@ -9,6 +9,7 @@ from agentlauncher.events import (
     TaskCreateEvent,
     TaskFinishEvent,
 )
+from agentlauncher.llm_interface import ToolParamSchema
 from agentlauncher.runtimes import (
     AGENT_0_NAME,
     AGENT_0_SYSTEM_PROMPT,
@@ -34,43 +35,44 @@ class AgentLauncher:
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self._final_result: asyncio.Future[str] | None = None
 
-    async def register_tool(
-        self, name: str, function, description: str, parameters: dict
+    def register_tool(
+        self,
+        name: str,
+        function,
+        description: str,
+        parameters: dict[str, ToolParamSchema],
     ):
-        await self.tool_runtime.register(name, function, description, parameters)
+        self.tool_runtime.register(name, function, description, parameters)
 
-    def tool(self, name: str, description: str, parameters: dict):
+    def tool(self, name: str, description: str, parameters: dict[str, dict]):
         def decorator(func):
-            async def register_tool():
-                await self.register_tool(name, func, description, parameters)
+            self.register_tool(
+                name,
+                func,
+                description,
+                {p: ToolParamSchema(**s) for p, s in parameters.items()},
+            )
 
-            asyncio.create_task(register_tool())
             return func
 
         return decorator
 
-    async def register_main_agent_llm_handler(self, name: str, function):
-        await self.llm_runtime.set_main_agent_handler(function)
+    def register_main_agent_llm_handler(self, name: str, function):
+        self.llm_runtime.set_main_agent_handler(function)
 
     def main_agent_llm_handler(self, name: str):
         def decorator(func):
-            async def register_handler():
-                await self.register_main_agent_llm_handler(name, func)
-
-            asyncio.create_task(register_handler())
+            self.register_main_agent_llm_handler(name, func)
             return func
 
         return decorator
 
-    async def register_sub_agent_llm_handler(self, name: str, function):
-        await self.llm_runtime.set_sub_agent_handler(function)
+    def register_sub_agent_llm_handler(self, name: str, function):
+        self.llm_runtime.set_sub_agent_handler(function)
 
-    async def sub_agent_llm_handler(self, name: str):
+    def sub_agent_llm_handler(self, name: str):
         def decorator(func):
-            async def register_handler():
-                await self.register_sub_agent_llm_handler(name, func)
-
-            asyncio.create_task(register_handler())
+            self.register_sub_agent_llm_handler(name, func)
             return func
 
         return decorator

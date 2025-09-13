@@ -9,7 +9,7 @@ from .message import (
     ToolResultMessage,
     UserMessage,
 )
-from .tool import ToolSchema
+from .tool import ToolParamSchema, ToolSchema
 
 __all__ = [
     "UserMessage",
@@ -19,6 +19,7 @@ __all__ = [
     "AssistantMessage",
     "LLMHandler",
     "ToolSchema",
+    "ToolParamSchema",
     "ResponseMessageList",
     "RequestMessageList",
     "RequestToolList",

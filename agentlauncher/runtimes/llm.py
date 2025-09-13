@@ -29,10 +29,10 @@ class LLMRuntime:
         self.event_bus.subscribe(LLMRequestEvent, self.handle_llm_request)
         self.event_bus.subscribe(LLMRuntimeErrorEvent, self.handle_llm_runtime_error)
 
-    async def set_main_agent_handler(self, handler: LLMHandler) -> None:
+    def set_main_agent_handler(self, handler: LLMHandler) -> None:
         self._main_agent_llm_handler = handler
 
-    async def set_sub_agent_handler(self, handler: LLMHandler) -> None:
+    def set_sub_agent_handler(self, handler: LLMHandler) -> None:
         self._sub_agent_llm_handler = handler
 
     async def handle_llm_request(self, event: LLMRequestEvent) -> None:

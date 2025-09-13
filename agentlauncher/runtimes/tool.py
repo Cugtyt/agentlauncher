@@ -16,7 +16,7 @@ from agentlauncher.events import (
     ToolsExecResultsEvent,
 )
 from agentlauncher.events.agent import AgentCreateEvent
-from agentlauncher.llm_interface import ToolSchema
+from agentlauncher.llm_interface import ToolParamSchema, ToolSchema
 
 
 @dataclass
@@ -43,21 +43,19 @@ class ToolRuntime:
             function=self._create_sub_agent_tool,
             description="Create a sub-agent to handle a specific task.",
             parameters={
-                "type": "object",
-                "properties": {
-                    "task": {
-                        "type": "string",
-                        "description": "The task for the sub-agent to accomplish.",
-                    },
-                    "tool_name_list": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of tool names that the sub-agent can use, "
-                        "the tool names are from your tool list."
-                        f"available tools are: {', '.join(self.tools.keys())}",
-                    },
-                },
-                "required": ["task", "tool_name_list"],
+                "task": ToolParamSchema(
+                    type="string",
+                    description="The task for the sub-agent to accomplish.",
+                    required=True,
+                ),
+                "tool_name_list": ToolParamSchema(
+                    type="array",
+                    items={"type": "string"},
+                    description="List of tool names that the sub-agent can use, "
+                    "the tool names are from your tool list."
+                    f"available tools are: {', '.join(self.tools.keys())}",
+                    required=True,
+                ),
             },
         )
 
@@ -87,12 +85,12 @@ class ToolRuntime:
         finally:
             del self.sub_agent_futures[agent_id]
 
-    async def register(
+    def register(
         self,
         name: str,
         function: Callable[..., str | Awaitable[str]],
         description: str,
-        parameters: dict[str, Any],
+        parameters: dict[str, ToolParamSchema],
     ):
         if name in self.tools:
             raise ValueError(f"Tool '{name}' is already registered.")

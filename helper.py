@@ -153,7 +153,12 @@ async def gpt_stream_handler(
             return {"role": "system", "content": message.content}
         elif isinstance(message, ToolCallMessage):
             return ResponseFunctionToolCallParam(
-                arguments=json.dumps(message.arguments),
+                arguments=json.dumps(
+                    {
+                        "type": "object",
+                        **message.arguments,
+                    }
+                ),
                 call_id=message.tool_call_id,
                 name=message.tool_name,
                 type="function_call",
@@ -173,7 +178,19 @@ async def gpt_stream_handler(
             "type": "function",
             "name": tool.name,
             "description": tool.description,
-            "parameters": tool.parameters,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    key: {
+                        "type": value.type,
+                        "description": value.description,
+                    } | ({"items": value.items} if value.type == "array" else {})
+                    for key, value in tool.parameters.items()
+                },
+                "required": [
+                    key for key, value in tool.parameters.items() if value.required
+                ],
+            },
         }
         for tool in tools
     ]
@@ -261,13 +278,21 @@ async def register(launcher: AgentLauncher) -> None:
         name="calculate",
         description="Calculate the result of the expression a * b + c.",
         parameters={
-            "type": "object",
-            "properties": {
-                "a": {"type": "integer", "description": "The first integer."},
-                "b": {"type": "integer", "description": "The second integer."},
-                "c": {"type": "integer", "description": "The third integer."},
+            "a": {
+                "type": "integer",
+                "description": "The first integer.",
+                "required": True,
             },
-            "required": ["a", "b", "c"],
+            "b": {
+                "type": "integer",
+                "description": "The second integer.",
+                "required": True,
+            },
+            "c": {
+                "type": "integer",
+                "description": "The third integer.",
+                "required": True,
+            },
         },
     )
     def calculate_tool(a: int, b: int, c: int) -> str:
@@ -277,14 +302,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="get_weather",
         description="Get the current weather for a given location.",
         parameters={
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The location to get the weather for.",
-                },
+            "location": {
+                "type": "string",
+                "description": "The location to get the weather for.",
+                "required": True,
             },
-            "required": ["location"],
         },
     )
     def get_weather_tool(location: str) -> str:
@@ -294,14 +316,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="convert_temperature",
         description="Convert temperature from Fahrenheit to Celsius.",
         parameters={
-            "type": "object",
-            "properties": {
-                "fahrenheit": {
-                    "type": "number",
-                    "description": "Temperature in Fahrenheit.",
-                },
+            "fahrenheit": {
+                "type": "number",
+                "description": "Temperature in Fahrenheit.",
+                "required": True,
             },
-            "required": ["fahrenheit"],
         },
     )
     def convert_temperature_tool(fahrenheit: float) -> str:
@@ -311,10 +330,7 @@ async def register(launcher: AgentLauncher) -> None:
     @launcher.tool(
         name="get_current_time",
         description="Get the current date and time.",
-        parameters={
-            "type": "object",
-            "properties": {},
-        },
+        parameters={},
     )
     def get_current_time_tool() -> str:
         from datetime import datetime
@@ -325,12 +341,16 @@ async def register(launcher: AgentLauncher) -> None:
         name="generate_random_number",
         description="Generate a random integer between min and max.",
         parameters={
-            "type": "object",
-            "properties": {
-                "min": {"type": "integer", "description": "Minimum value."},
-                "max": {"type": "integer", "description": "Maximum value."},
+            "min": {
+                "type": "integer",
+                "description": "Minimum value.",
+                "required": True,
             },
-            "required": ["min", "max"],
+            "max": {
+                "type": "integer",
+                "description": "Maximum value.",
+                "required": True,
+            },
         },
     )
     def generate_random_number_tool(min: int, max: int) -> str:
@@ -342,11 +362,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="search_web",
         description="Search the web for a given query.",
         parameters={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "The search query."},
+            "query": {
+                "type": "string",
+                "description": "The search query.",
+                "required": True,
             },
-            "required": ["query"],
         },
     )
     async def search_web_tool(query: str) -> str:
@@ -357,11 +377,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="get_stock_price",
         description="Get the current stock price for a given ticker symbol.",
         parameters={
-            "type": "object",
-            "properties": {
-                "ticker": {"type": "string", "description": "The stock ticker symbol."},
+            "ticker": {
+                "type": "string",
+                "description": "The stock ticker symbol.",
+                "required": True,
             },
-            "required": ["ticker"],
         },
     )
     async def get_stock_price_tool(ticker: str) -> str:
@@ -372,11 +392,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="text_analysis",
         description="Analyze the text and provide word count.",
         parameters={
-            "type": "object",
-            "properties": {
-                "text": {"type": "string", "description": "The text to analyze."},
+            "text": {
+                "type": "string",
+                "description": "The text to analyze.",
+                "required": True,
             },
-            "required": ["text"],
         },
     )
     def text_analysis_tool(text: str) -> str:
@@ -388,11 +408,11 @@ async def register(launcher: AgentLauncher) -> None:
         description="Suggest three suitable dates in the given month "
         "(format: YYYY-MM).",
         parameters={
-            "type": "object",
-            "properties": {
-                "month": {"type": "string", "description": "Month in YYYY-MM format."},
+            "month": {
+                "type": "string",
+                "description": "Month in YYYY-MM format.",
+                "required": True,
             },
-            "required": ["month"],
         },
     )
     def find_dates_tool(month: str) -> str:
@@ -402,14 +422,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="suggest_speakers",
         description="Suggest two keynote speakers for a given topic.",
         parameters={
-            "type": "object",
-            "properties": {
-                "topic": {
-                    "type": "string",
-                    "description": "The topic for keynote speakers.",
-                },
+            "topic": {
+                "type": "string",
+                "description": "The topic for keynote speakers.",
+                "required": True,
             },
-            "required": ["topic"],
         },
     )
     def suggest_speakers_tool(topic: str) -> str:
@@ -419,11 +436,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="draft_agenda",
         description="Prepare a draft agenda with a given number of sessions.",
         parameters={
-            "type": "object",
-            "properties": {
-                "sessions": {"type": "integer", "description": "Number of sessions."},
+            "sessions": {
+                "type": "integer",
+                "description": "Number of sessions.",
+                "required": True,
             },
-            "required": ["sessions"],
         },
     )
     def draft_agenda_tool(sessions: int) -> str:
@@ -433,10 +450,7 @@ async def register(launcher: AgentLauncher) -> None:
     @launcher.tool(
         name="list_platforms",
         description="List three online platforms suitable for hosting a conference.",
-        parameters={
-            "type": "object",
-            "properties": {},
-        },
+        parameters={},
     )
     def list_platforms_tool() -> str:
         return "Online platforms: Zoom, Microsoft Teams, Hopin."
@@ -446,16 +460,21 @@ async def register(launcher: AgentLauncher) -> None:
         description="Estimate a budget for the event, including speaker fees,"
         " platform costs, and marketing.",
         parameters={
-            "type": "object",
-            "properties": {
-                "speakers": {"type": "integer", "description": "Number of speakers."},
-                "platform": {"type": "string", "description": "Platform name."},
-                "marketing": {
-                    "type": "integer",
-                    "description": "Marketing budget in USD.",
-                },
+            "speakers": {
+                "type": "integer",
+                "description": "Number of speakers.",
+                "required": True,
             },
-            "required": ["speakers", "platform", "marketing"],
+            "platform": {
+                "type": "string",
+                "description": "Platform name.",
+                "required": True,
+            },
+            "marketing": {
+                "type": "integer",
+                "description": "Marketing budget in USD.",
+                "required": True,
+            },
         },
     )
     def estimate_budget_tool(speakers: int, platform: str, marketing: int) -> str:
@@ -469,11 +488,11 @@ async def register(launcher: AgentLauncher) -> None:
         name="draft_email",
         description="Draft an invitation email for the event.",
         parameters={
-            "type": "object",
-            "properties": {
-                "event_name": {"type": "string", "description": "Name of the event."},
+            "event_name": {
+                "type": "string",
+                "description": "Name of the event.",
+                "required": True,
             },
-            "required": ["event_name"],
         },
     )
     def draft_email_tool(event_name: str) -> str:
@@ -496,9 +515,7 @@ async def register(launcher: AgentLauncher) -> None:
         agent_id: str,
         event_bus: EventBus,
     ) -> ResponseMessageList:
-        return await gpt_stream_handler(
-            messages, tools, agent_id, event_bus
-        )
+        return await gpt_stream_handler(messages, tools, agent_id, event_bus)
 
     @launcher.subscribe_event(MessageStartStreamingEvent)
     async def handle_message_start_streaming_event(event: MessageStartStreamingEvent):
