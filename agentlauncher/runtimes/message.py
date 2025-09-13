@@ -1,7 +1,7 @@
 from agentlauncher.events import (
     EventBus,
     LLMResponseEvent,
-    MessageAddEvent,
+    MessagesAddEvent,
     TaskCreateEvent,
     ToolsExecResultsEvent,
 )
@@ -30,13 +30,13 @@ class MessageRuntime:
             return
         self.history.extend(event.response)
         await self.event_bus.emit(
-            MessageAddEvent(agent_id=event.agent_id, messages=event.response)
+            MessagesAddEvent(agent_id=event.agent_id, messages=event.response)
         )
 
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
         self.history.append(UserMessage(content=event.task))
         await self.event_bus.emit(
-            MessageAddEvent(
+            MessagesAddEvent(
                 agent_id=AGENT_0_NAME, messages=[UserMessage(content=event.task)]
             )
         )
@@ -55,5 +55,5 @@ class MessageRuntime:
             )
         self.history.extend(messages)
         await self.event_bus.emit(
-            MessageAddEvent(agent_id=event.agent_id, messages=messages)
+            MessagesAddEvent(agent_id=event.agent_id, messages=messages)
         )

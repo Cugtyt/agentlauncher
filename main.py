@@ -19,24 +19,24 @@ Each step may require different tools or information sources. Provide a clear su
 
 async def main() -> None:
     launcher = AgentLauncher(
-        verbose=EventVerboseLevel.BASIC,
+        verbose=EventVerboseLevel.SILENT,
     )
 
     await register(launcher)
-    await launcher.run(test_task)
-    for message in launcher.message_runtime.history:
-        print(message)
+    # await launcher.run(test_task)
+    # for message in launcher.message_runtime.history:
+    #     print(message)
 
-    # while True:
-    #     task = input("Enter your task (or 'exit' to quit): ")
-    #     if task.lower() in ("exit", "quit"):
-    #         break
+    while True:
+        task = input("Enter your task (or 'exit' to quit): ")
+        if task.lower() in ("exit", "quit"):
+            break
 
-    #     if task == '1':
-    #         task = test_task
+        if task == '1':
+            task = test_task
 
-    #     result = await launcher.run(task=task)
-    #     print("Final Result:\n", result)
+        result = await launcher.run(task=task)
+        # print("Final Result:\n", result)
 
 
 if __name__ == "__main__":

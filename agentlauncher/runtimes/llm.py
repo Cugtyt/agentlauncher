@@ -10,7 +10,10 @@ from agentlauncher.events import (
 from agentlauncher.llm_interface import (
     LLMHandler,
 )
-from agentlauncher.llm_interface.message import AssistantMessage, ResponseMessageList
+from agentlauncher.llm_interface.message import (
+    AssistantMessage,
+    ResponseMessageList,
+)
 
 from .shared import AGENT_0_NAME
 
@@ -21,22 +24,22 @@ class LLMRuntime:
         event_bus: EventBus,
     ):
         self.event_bus = event_bus
-        self.main_agent_llm_handler: LLMHandler | None = None
-        self.sub_agent_llm_handler: LLMHandler | None = None
+        self._main_agent_llm_handler: LLMHandler | None = None
+        self._sub_agent_llm_handler: LLMHandler | None = None
         self.event_bus.subscribe(LLMRequestEvent, self.handle_llm_request)
         self.event_bus.subscribe(LLMRuntimeErrorEvent, self.handle_llm_runtime_error)
 
     async def set_main_agent_handler(self, handler: LLMHandler) -> None:
-        self.main_agent_llm_handler = handler
+        self._main_agent_llm_handler = handler
 
     async def set_sub_agent_handler(self, handler: LLMHandler) -> None:
-        self.sub_agent_llm_handler = handler
+        self._sub_agent_llm_handler = handler
 
     async def handle_llm_request(self, event: LLMRequestEvent) -> None:
         handler = (
-            self.main_agent_llm_handler
-            if event.agent_id == AGENT_0_NAME or not self.sub_agent_llm_handler
-            else self.sub_agent_llm_handler
+            self._main_agent_llm_handler
+            if event.agent_id == AGENT_0_NAME or not self._sub_agent_llm_handler
+            else self._sub_agent_llm_handler
         )
         if not handler:
             await self.event_bus.emit(
@@ -49,10 +52,16 @@ class LLMRuntime:
             return
         try:
             if asyncio.iscoroutinefunction(handler):
-                response = await handler(event.messages, event.tool_schemas)
+                response = await handler(
+                    event.messages, event.tool_schemas, event.agent_id, self.event_bus
+                )
             else:
                 response = await asyncio.to_thread(
-                    handler, event.messages, event.tool_schemas
+                    handler,
+                    event.messages,
+                    event.tool_schemas,
+                    event.agent_id,
+                    self.event_bus,
                 )
             await self.event_bus.emit(
                 LLMResponseEvent(
