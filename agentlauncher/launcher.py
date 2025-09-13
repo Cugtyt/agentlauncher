@@ -1,7 +1,10 @@
 import asyncio
+from typing import Any
 
 from agentlauncher.events import (
     EventBus,
+    EventHandler,
+    EventType,
     EventVerboseLevel,
     TaskCreateEvent,
     TaskFinishEvent,
@@ -36,11 +39,48 @@ class AgentLauncher:
     ):
         await self.tool_runtime.register(name, function, description, parameters)
 
+    def tool(self, name: str, description: str, parameters: dict):
+        def decorator(func):
+            async def register_tool():
+                await self.register_tool(name, func, description, parameters)
+
+            asyncio.create_task(register_tool())
+            return func
+
+        return decorator
+
     async def register_main_agent_llm_handler(self, name: str, function):
         await self.llm_runtime.set_main_agent_handler(function)
 
+    def main_agent_llm_handler(self, name: str):
+        def decorator(func):
+            async def register_handler():
+                await self.register_main_agent_llm_handler(name, func)
+
+            asyncio.create_task(register_handler())
+            return func
+
+        return decorator
+
     async def register_sub_agent_llm_handler(self, name: str, function):
         await self.llm_runtime.set_sub_agent_handler(function)
+
+    async def sub_agent_llm_handler(self, name: str):
+        def decorator(func):
+            async def register_handler():
+                await self.register_sub_agent_llm_handler(name, func)
+
+            asyncio.create_task(register_handler())
+            return func
+
+        return decorator
+
+    def subscribe_event(self, event_type: type[EventType]):
+        def decorator(func: EventHandler[Any]):
+            self.event_bus.subscribe(event_type, func)
+            return func
+
+        return decorator
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
         if event.agent_id != AGENT_0_NAME:

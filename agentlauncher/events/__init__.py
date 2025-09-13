@@ -30,11 +30,12 @@ from .tool import (
     ToolsExecRequestEvent,
     ToolsExecResultsEvent,
 )
-from .type import EventType
+from .type import EventHandler, EventType
 
 __all__ = [
     "EventType",
     "EventBus",
+    "EventHandler",
     "LLMRequestEvent",
     "LLMResponseEvent",
     "LLMRuntimeErrorEvent",

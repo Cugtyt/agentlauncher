@@ -256,78 +256,9 @@ async def gpt_stream_handler(
     return result
 
 
-def calculate(a: int, b: int, c: int) -> str:
-    return str(a * b + c)
-
-
-def get_weather(location: str) -> str:
-    return f"The weather in {location} is sunny with a high of 75°F."
-
-
-def convert_temperature(fahrenheit: float) -> str:
-    celsius = (fahrenheit - 32) * 5.0 / 9.0
-    return f"{fahrenheit}°F is {celsius:.2f}°C."
-
-
-def get_current_time() -> str:
-    from datetime import datetime
-
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-async def search_web(query: str) -> str:
-    await asyncio.sleep(1)
-    return f"Search results for '{query}': Example result 1, Example result 2."
-
-
-def generate_random_number(min: int, max: int) -> str:
-    import random
-
-    return str(random.randint(min, max))
-
-
-async def get_stock_price(ticker: str) -> str:
-    await asyncio.sleep(1)
-    return f"The current price of {ticker} is $150.00."
-
-
-def text_analysis(text: str) -> str:
-    word_count = len(text.split())
-    return f"The text contains {word_count} words."
-
-
-def find_dates(month: str) -> str:
-    return f"Suggested dates: {month}-10, {month}-17, {month}-24."
-
-
-def suggest_speakers(topic: str) -> str:
-    return f"Keynote speakers in {topic}: Dr. Alice Smith, Prof. Bob Lee."
-
-
-def draft_agenda(sessions: int) -> str:
-    agenda = "\n".join([f"Session {i + 1}: Topic TBD" for i in range(sessions)])
-    return f"Draft agenda:\n{agenda}"
-
-
-def list_platforms() -> str:
-    return "Online platforms: Zoom, Microsoft Teams, Hopin."
-
-
-def estimate_budget(speakers: int, platform: str, marketing: int) -> str:
-    total = speakers * 1000 + 500 + marketing
-    return f"Estimated budget: Speaker fees ${speakers * 1000}, Platform ({platform})\
-          $500, Marketing ${marketing}, Total ${total}."
-
-
-def draft_email(event_name: str) -> str:
-    return f"Subject: Invitation to {event_name}\nDear Attendee,\n\
-        You are invited to our virtual conference. More details to follow."
-
-
 async def register(launcher: AgentLauncher) -> None:
-    await launcher.register_tool(
+    @launcher.tool(
         name="calculate",
-        function=calculate,
         description="Calculate the result of the expression a * b + c.",
         parameters={
             "type": "object",
@@ -339,10 +270,11 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["a", "b", "c"],
         },
     )
+    def calculate_tool(a: int, b: int, c: int) -> str:
+        return str(a * b + c)
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="get_weather",
-        function=get_weather,
         description="Get the current weather for a given location.",
         parameters={
             "type": "object",
@@ -355,10 +287,11 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["location"],
         },
     )
+    def get_weather_tool(location: str) -> str:
+        return f"The weather in {location} is sunny with a high of 75°F."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="convert_temperature",
-        function=convert_temperature,
         description="Convert temperature from Fahrenheit to Celsius.",
         parameters={
             "type": "object",
@@ -371,20 +304,25 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["fahrenheit"],
         },
     )
+    def convert_temperature_tool(fahrenheit: float) -> str:
+        celsius = (fahrenheit - 32) * 5.0 / 9.0
+        return f"{fahrenheit}°F is {celsius:.2f}°C."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="get_current_time",
-        function=get_current_time,
         description="Get the current date and time.",
         parameters={
             "type": "object",
             "properties": {},
         },
     )
+    def get_current_time_tool() -> str:
+        from datetime import datetime
 
-    await launcher.register_tool(
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    @launcher.tool(
         name="generate_random_number",
-        function=generate_random_number,
         description="Generate a random integer between min and max.",
         parameters={
             "type": "object",
@@ -395,10 +333,13 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["min", "max"],
         },
     )
+    def generate_random_number_tool(min: int, max: int) -> str:
+        import random
 
-    await launcher.register_tool(
+        return str(random.randint(min, max))
+
+    @launcher.tool(
         name="search_web",
-        function=search_web,
         description="Search the web for a given query.",
         parameters={
             "type": "object",
@@ -408,10 +349,12 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["query"],
         },
     )
+    async def search_web_tool(query: str) -> str:
+        await asyncio.sleep(1)
+        return f"Search results for '{query}': Example result 1, Example result 2."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="get_stock_price",
-        function=get_stock_price,
         description="Get the current stock price for a given ticker symbol.",
         parameters={
             "type": "object",
@@ -421,10 +364,12 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["ticker"],
         },
     )
+    async def get_stock_price_tool(ticker: str) -> str:
+        await asyncio.sleep(1)
+        return f"The current price of {ticker} is $150.00."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="text_analysis",
-        function=text_analysis,
         description="Analyze the text and provide word count.",
         parameters={
             "type": "object",
@@ -434,12 +379,14 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["text"],
         },
     )
+    def text_analysis_tool(text: str) -> str:
+        word_count = len(text.split())
+        return f"The text contains {word_count} words."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="find_dates",
-        function=find_dates,
-        description="Suggest three suitable dates in the given month"
-        " (format: YYYY-MM).",
+        description="Suggest three suitable dates in the given month "
+        "(format: YYYY-MM).",
         parameters={
             "type": "object",
             "properties": {
@@ -448,10 +395,11 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["month"],
         },
     )
+    def find_dates_tool(month: str) -> str:
+        return f"Suggested dates: {month}-10, {month}-17, {month}-24."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="suggest_speakers",
-        function=suggest_speakers,
         description="Suggest two keynote speakers for a given topic.",
         parameters={
             "type": "object",
@@ -464,10 +412,11 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["topic"],
         },
     )
+    def suggest_speakers_tool(topic: str) -> str:
+        return f"Keynote speakers in {topic}: Dr. Alice Smith, Prof. Bob Lee."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="draft_agenda",
-        function=draft_agenda,
         description="Prepare a draft agenda with a given number of sessions.",
         parameters={
             "type": "object",
@@ -477,20 +426,23 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["sessions"],
         },
     )
+    def draft_agenda_tool(sessions: int) -> str:
+        agenda = "\n".join([f"Session {i + 1}: Topic TBD" for i in range(sessions)])
+        return f"Draft agenda:\n{agenda}"
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="list_platforms",
-        function=list_platforms,
         description="List three online platforms suitable for hosting a conference.",
         parameters={
             "type": "object",
             "properties": {},
         },
     )
+    def list_platforms_tool() -> str:
+        return "Online platforms: Zoom, Microsoft Teams, Hopin."
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="estimate_budget",
-        function=estimate_budget,
         description="Estimate a budget for the event, including speaker fees,"
         " platform costs, and marketing.",
         parameters={
@@ -506,10 +458,15 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["speakers", "platform", "marketing"],
         },
     )
+    def estimate_budget_tool(speakers: int, platform: str, marketing: int) -> str:
+        total = speakers * 1000 + 500 + marketing
+        return (
+            f"Estimated budget: Speaker fees ${speakers * 1000}, "
+            f"Platform ({platform}) $500, Marketing ${marketing}, Total ${total}."
+        )
 
-    await launcher.register_tool(
+    @launcher.tool(
         name="draft_email",
-        function=draft_email,
         description="Draft an invitation email for the event.",
         parameters={
             "type": "object",
@@ -519,60 +476,54 @@ async def register(launcher: AgentLauncher) -> None:
             "required": ["event_name"],
         },
     )
+    def draft_email_tool(event_name: str) -> str:
+        return (
+            f"Subject: Invitation to {event_name}\n"
+            "Dear Attendee,\nYou are invited to our virtual conference. "
+            "More details to follow."
+        )
 
-    await launcher.register_main_agent_llm_handler(
-        name="gpt-4",
-        function=gpt_stream_handler,
-    )
+    @launcher.main_agent_llm_handler(name="gpt-4")
+    async def main_agent_handler(
+        messages: list[
+            UserMessage
+            | AssistantMessage
+            | SystemMessage
+            | ToolCallMessage
+            | ToolResultMessage
+        ],
+        tools: list[ToolSchema],
+        agent_id: str,
+        event_bus: EventBus,
+    ) -> ResponseMessageList:
+        return await gpt_stream_handler(
+            messages, tools, agent_id, event_bus
+        )
 
+    @launcher.subscribe_event(MessageStartStreamingEvent)
     async def handle_message_start_streaming_event(event: MessageStartStreamingEvent):
         print(f"[{event.agent_id}] ", end="", flush=True)
 
-    launcher.event_bus.subscribe(
-        MessageStartStreamingEvent,
-        handle_message_start_streaming_event,
-    )
-
+    @launcher.subscribe_event(MessageDeltaStreamingEvent)
     async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
         print(f"{event.delta}", end="", flush=True)
 
-    launcher.event_bus.subscribe(
-        MessageDeltaStreamingEvent,
-        handle_message_delta_streaming_event,
-    )
-
+    @launcher.subscribe_event(MessageDoneStreamingEvent)
     async def handle_message_done_streaming_event(event: MessageDoneStreamingEvent):
         print()
 
-    launcher.event_bus.subscribe(
-        MessageDoneStreamingEvent,
-        handle_message_done_streaming_event,
-    )
-
+    @launcher.subscribe_event(ToolCallNameStreamingEvent)
     async def handle_tool_call_name_streaming_event(event: ToolCallNameStreamingEvent):
         print(f"\n[{event.agent_id}] Tool call started: {event.tool_name}")
 
-    launcher.event_bus.subscribe(
-        ToolCallNameStreamingEvent,
-        handle_tool_call_name_streaming_event,
-    )
-
+    @launcher.subscribe_event(ToolCallArgumentsDeltaStreamingEvent)
     async def handle_tool_call_arguments_delta_streaming_event(
         event: ToolCallArgumentsDeltaStreamingEvent,
     ):
         print(f"{event.arguments_delta}", end="", flush=True)
 
-    launcher.event_bus.subscribe(
-        ToolCallArgumentsDeltaStreamingEvent,
-        handle_tool_call_arguments_delta_streaming_event,
-    )
-
+    @launcher.subscribe_event(ToolCallArgumentsDoneStreamingEvent)
     async def handle_tool_call_arguments_done_streaming_event(
         event: ToolCallArgumentsDoneStreamingEvent,
     ):
         print()
-
-    launcher.event_bus.subscribe(
-        ToolCallArgumentsDoneStreamingEvent,
-        handle_tool_call_arguments_done_streaming_event,
-    )
