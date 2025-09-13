@@ -57,22 +57,22 @@ class AgentLauncher:
 
         return decorator
 
-    def register_main_agent_llm_handler(self, name: str, function):
+    def register_main_agent_llm_handler(self, function):
         self.llm_runtime.set_main_agent_handler(function)
 
-    def main_agent_llm_handler(self, name: str):
+    def main_agent_llm_handler(self):
         def decorator(func):
-            self.register_main_agent_llm_handler(name, func)
+            self.register_main_agent_llm_handler(func)
             return func
 
         return decorator
 
-    def register_sub_agent_llm_handler(self, name: str, function):
+    def register_sub_agent_llm_handler(self, function):
         self.llm_runtime.set_sub_agent_handler(function)
 
-    def sub_agent_llm_handler(self, name: str):
+    def sub_agent_llm_handler(self):
         def decorator(func):
-            self.register_sub_agent_llm_handler(name, func)
+            self.register_sub_agent_llm_handler(func)
             return func
 
         return decorator

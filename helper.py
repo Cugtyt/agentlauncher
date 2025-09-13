@@ -62,6 +62,8 @@ def gpt_handler(
         | ToolResultMessage
     ],
     tools: list[ToolSchema],
+    agent_id: str,
+    event_bus: EventBus,
 ) -> ResponseMessageList:
     def convert_message(
         message: UserMessage
@@ -98,7 +100,20 @@ def gpt_handler(
             "type": "function",
             "name": tool.name,
             "description": tool.description,
-            "parameters": tool.parameters,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    key: {
+                        "type": value.type,
+                        "description": value.description,
+                    }
+                    | ({"items": value.items} if value.type == "array" else {})
+                    for key, value in tool.parameters.items()
+                },
+                "required": [
+                    key for key, value in tool.parameters.items() if value.required
+                ],
+            },
         }
         for tool in tools
     ]
@@ -184,7 +199,8 @@ async def gpt_stream_handler(
                     key: {
                         "type": value.type,
                         "description": value.description,
-                    } | ({"items": value.items} if value.type == "array" else {})
+                    }
+                    | ({"items": value.items} if value.type == "array" else {})
                     for key, value in tool.parameters.items()
                 },
                 "required": [
@@ -502,7 +518,7 @@ async def register(launcher: AgentLauncher) -> None:
             "More details to follow."
         )
 
-    @launcher.main_agent_llm_handler(name="gpt-4")
+    @launcher.main_agent_llm_handler()
     async def main_agent_handler(
         messages: list[
             UserMessage
