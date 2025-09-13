@@ -26,6 +26,7 @@ from agentlauncher.events import (
     EventBus,
     MessageDeltaStreamingEvent,
     MessageDoneStreamingEvent,
+    MessagesAddEvent,
     MessageStartStreamingEvent,
     ToolCallArgumentsDeltaStreamingEvent,
     ToolCallArgumentsDoneStreamingEvent,
@@ -225,7 +226,7 @@ async def gpt_stream_handler(
         if isinstance(chunk, ResponseOutputItemAddedEvent):
             if isinstance(chunk.item, ResponseOutputMessage):
                 partial_assistant_message = AssistantMessage(content="")
-                await event_bus.emit(MessageStartStreamingEvent(agent_id=agent_id))
+                event_bus.emit(MessageStartStreamingEvent(agent_id=agent_id))
             elif isinstance(chunk.item, ResponseFunctionToolCall):
                 partial_tool_call = ToolCallMessage(
                     tool_call_id=chunk.item.call_id,
@@ -233,7 +234,7 @@ async def gpt_stream_handler(
                     arguments={},
                 )
                 partial_tool_call_arguments = ""
-                await event_bus.emit(
+                event_bus.emit(
                     ToolCallNameStreamingEvent(
                         agent_id=agent_id,
                         tool_name=chunk.item.name,
@@ -244,7 +245,7 @@ async def gpt_stream_handler(
             if partial_assistant_message is None:
                 raise ValueError("Received text delta without starting message")
             partial_assistant_message.content += chunk.delta
-            await event_bus.emit(
+            event_bus.emit(
                 MessageDeltaStreamingEvent(agent_id=agent_id, delta=chunk.delta)
             )
         elif isinstance(chunk, ResponseTextDoneEvent):
@@ -252,7 +253,7 @@ async def gpt_stream_handler(
                 raise ValueError("Received text done without starting message")
             result.append(partial_assistant_message)
             partial_assistant_message = AssistantMessage(content="")
-            await event_bus.emit(
+            event_bus.emit(
                 MessageDoneStreamingEvent(
                     agent_id=agent_id, message=partial_assistant_message.content
                 )
@@ -263,7 +264,7 @@ async def gpt_stream_handler(
                     "Received function call arguments delta without starting tool call"
                 )
             partial_tool_call_arguments += chunk.delta
-            await event_bus.emit(
+            event_bus.emit(
                 ToolCallArgumentsDeltaStreamingEvent(
                     agent_id=agent_id,
                     tool_call_id=partial_tool_call.tool_call_id,
@@ -277,7 +278,7 @@ async def gpt_stream_handler(
                 )
             partial_tool_call.arguments = json.loads(partial_tool_call_arguments)
             result.append(partial_tool_call)
-            await event_bus.emit(
+            event_bus.emit(
                 ToolCallArgumentsDoneStreamingEvent(
                     agent_id=agent_id,
                     tool_call_id=partial_tool_call.tool_call_id,
@@ -519,7 +520,7 @@ async def register(launcher: AgentLauncher) -> None:
         )
 
     @launcher.main_agent_llm_handler()
-    async def main_agent_handler(
+    def main_agent_handler(
         messages: list[
             UserMessage
             | AssistantMessage
@@ -531,7 +532,7 @@ async def register(launcher: AgentLauncher) -> None:
         agent_id: str,
         event_bus: EventBus,
     ) -> ResponseMessageList:
-        return await gpt_stream_handler(messages, tools, agent_id, event_bus)
+        return gpt_handler(messages, tools, agent_id, event_bus)
 
     @launcher.subscribe_event(MessageStartStreamingEvent)
     async def handle_message_start_streaming_event(event: MessageStartStreamingEvent):
@@ -560,3 +561,21 @@ async def register(launcher: AgentLauncher) -> None:
         event: ToolCallArgumentsDoneStreamingEvent,
     ):
         print()
+
+    @launcher.subscribe_event(MessagesAddEvent)
+    async def handle_messages_add_event(event: MessagesAddEvent):
+        for message in event.messages:
+            if isinstance(message, UserMessage):
+                print(f"[{event.agent_id}] User: {message.content}")
+            elif isinstance(message, AssistantMessage):
+                print(f"[{event.agent_id}] Assistant: {message.content}")
+            elif isinstance(message, ToolCallMessage):
+                print(
+                    f"[{event.agent_id}] ToolCall: {message.tool_name} "
+                    f"with arguments {message.arguments}"
+                )
+            elif isinstance(message, ToolResultMessage):
+                print(
+                    f"[{event.agent_id}] ToolResult: {message.tool_name} "
+                    f"result: {message.result}"
+                )

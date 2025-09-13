@@ -96,7 +96,7 @@ class AgentLauncher:
     ) -> str:
         self.tool_runtime.setup()
         self._final_result = asyncio.get_event_loop().create_future()
-        await self.event_bus.emit(
+        self.event_bus.emit(
             TaskCreateEvent(
                 task=task,
                 conversation=self.message_runtime.history,

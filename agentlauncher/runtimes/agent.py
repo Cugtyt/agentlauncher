@@ -48,7 +48,7 @@ class Agent:
         self.event_bus = event_bus
 
     async def start(self) -> None:
-        await self.event_bus.emit(AgentStartEvent(agent_id=self.agent_id))
+        self.event_bus.emit(AgentStartEvent(agent_id=self.agent_id))
         self.conversation = [
             *self.conversation,
             UserMessage(content=self.task),
@@ -60,7 +60,7 @@ class Agent:
                 SystemMessage(content=self.system_prompt),
                 *self.conversation,
             ]
-        await self.event_bus.emit(
+        self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
                 messages=message_list,
@@ -81,11 +81,11 @@ class Agent:
             final_response = "\n".join(
                 msg.content for msg in response if isinstance(msg, AssistantMessage)
             )
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentFinishEvent(agent_id=self.agent_id, result=final_response)
             )
             return
-        await self.event_bus.emit(
+        self.event_bus.emit(
             ToolsExecRequestEvent(agent_id=self.agent_id, tool_calls=tool_calls)
         )
 
@@ -107,7 +107,7 @@ class Agent:
                 SystemMessage(content=self.system_prompt),
                 *self.conversation,
             ]
-        await self.event_bus.emit(
+        self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
                 messages=message_list,
@@ -131,7 +131,7 @@ class AgentRuntime:
 
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
         if AGENT_0_NAME not in self.agents:
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentCreateEvent(
                     agent_id=AGENT_0_NAME,
                     task=event.task,
@@ -145,7 +145,7 @@ class AgentRuntime:
 
     async def handle_agent_create(self, event: AgentCreateEvent) -> None:
         if event.agent_id in self.agents:
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="Agent with this ID already exists.",
@@ -165,7 +165,7 @@ class AgentRuntime:
     async def handle_llm_response(self, event: LLMResponseEvent) -> None:
         agent = self.agents.get(event.agent_id)
         if not agent:
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="Agent not found for LLM response.",
@@ -178,7 +178,7 @@ class AgentRuntime:
     async def handle_tools_exec_results(self, event: ToolsExecResultsEvent) -> None:
         agent = self.agents.get(event.agent_id)
         if not agent:
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="Agent not found for tool execution result.",
@@ -191,13 +191,13 @@ class AgentRuntime:
         if event.agent_id in self.agents:
             if event.agent_id != AGENT_0_NAME:
                 del self.agents[event.agent_id]
-                await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+                self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
             else:
-                await self.event_bus.emit(
+                self.event_bus.emit(
                     TaskFinishEvent(agent_id=event.agent_id, result=event.result)
                 )
         else:
-            await self.event_bus.emit(
+            self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="Agent not found on finish.",
@@ -207,8 +207,8 @@ class AgentRuntime:
     async def handle_agent_runtime_error(self, event: AgentRuntimeErrorEvent) -> None:
         if event.agent_id and event.agent_id in self.agents:
             del self.agents[event.agent_id]
-            await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
-        await self.event_bus.emit(
+            self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+        self.event_bus.emit(
             TaskFinishEvent(
                 agent_id=event.agent_id or "unknown",
                 result=f"Agent encountered an error: {event.error}",

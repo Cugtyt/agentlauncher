@@ -24,7 +24,7 @@ class EventBus:
             self._subscribers[event_type] = []
         self._subscribers[event_type].append(handler)
 
-    async def emit(self, event: EventType) -> None:
+    def emit(self, event: EventType) -> None:
         event_type = type(event)
         handlers = self._subscribers.get(event_type, [])
         asyncio.create_task(asyncio.to_thread(self.log_event, event))

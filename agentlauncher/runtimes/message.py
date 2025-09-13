@@ -29,13 +29,13 @@ class MessageRuntime:
         if event.agent_id != AGENT_0_NAME:
             return
         self.history.extend(event.response)
-        await self.event_bus.emit(
+        self.event_bus.emit(
             MessagesAddEvent(agent_id=event.agent_id, messages=event.response)
         )
 
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
         self.history.append(UserMessage(content=event.task))
-        await self.event_bus.emit(
+        self.event_bus.emit(
             MessagesAddEvent(
                 agent_id=AGENT_0_NAME, messages=[UserMessage(content=event.task)]
             )
@@ -54,6 +54,6 @@ class MessageRuntime:
                 )
             )
         self.history.extend(messages)
-        await self.event_bus.emit(
+        self.event_bus.emit(
             MessagesAddEvent(agent_id=event.agent_id, messages=messages)
         )
