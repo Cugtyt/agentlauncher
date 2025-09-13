@@ -35,28 +35,57 @@ See `main.py` for a usage example. Register tools and LLM handlers, then run tas
 
 ```python
 from agentlauncher import AgentLauncher
+from agentlauncher.events import (
+    EventBus,
+    MessageDeltaStreamingEvent,
+)
 
 launcher = AgentLauncher()
 
-await launcher.register_tool(
+@launcher.tool(
     name="calculate",
-    function=lambda a, b, c: a * b + c,
-    description="Calculate a * b + c.",
+    description="Calculate the result of the expression a * b + c.",
     parameters={
-        "type": "object",
-        "properties": {
-            "a": {"type": "integer", "description": "First integer."},
-            "b": {"type": "integer", "description": "Second integer."},
-            "c": {"type": "integer", "description": "Third integer."},
+        "a": {
+            "type": "integer",
+            "description": "The first integer.",
+            "required": True,
         },
-        "required": ["a", "b", "c"],
+        "b": {
+            "type": "integer",
+            "description": "The second integer.",
+            "required": True,
+        },
+        "c": {
+            "type": "integer",
+            "description": "The third integer.",
+            "required": True,
+        },
     },
 )
+def calculate_tool(a: int, b: int, c: int) -> str:
+    return str(a * b + c)
 
-await launcher.register_main_agent_llm_handler(
-    name="gpt-4",
-    function=your_llm_function,
-)
+@launcher.main_agent_llm_handler(name="gpt-4")
+async def main_agent_handler(
+    messages: list[
+        UserMessage
+        | AssistantMessage
+        | SystemMessage
+        | ToolCallMessage
+        | ToolResultMessage
+    ],
+    tools: list[ToolSchema],
+    agent_id: str,
+    event_bus: EventBus,
+) -> ResponseMessageList:
+    return await your_llm_function(messages, tools, agent_id, event_bus)
+
+
+# you can subscribe any events you want
+@launcher.subscribe_event(MessageDeltaStreamingEvent)
+async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
+    print(f"{event.delta}", end="", flush=True)
 
 while True:
     task = input("Enter your task (or 'exit' to quit): ")
