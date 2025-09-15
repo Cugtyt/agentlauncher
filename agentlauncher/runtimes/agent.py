@@ -78,9 +78,10 @@ class Agent:
             if isinstance(msg, ToolCallMessage)
         ]
         if not tool_calls:
-            final_response = "\n".join(
+            assistant_contents = [
                 msg.content for msg in response if isinstance(msg, AssistantMessage)
-            )
+            ]
+            final_response = "\n".join(assistant_contents) if assistant_contents else ""
             self.event_bus.emit(
                 AgentFinishEvent(agent_id=self.agent_id, result=final_response)
             )

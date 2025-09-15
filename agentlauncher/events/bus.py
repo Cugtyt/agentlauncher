@@ -27,7 +27,8 @@ class EventBus:
     def emit(self, event: EventType) -> None:
         event_type = type(event)
         handlers = self._subscribers.get(event_type, [])
-        asyncio.create_task(asyncio.to_thread(self.log_event, event))
+        if self._verbose != EventVerboseLevel.SILENT:
+            asyncio.create_task(asyncio.to_thread(self.log_event, event))
         for handler in handlers:
             asyncio.ensure_future(handler(event))
 
