@@ -1,6 +1,7 @@
 from .handler import LLMHandler
 from .message import (
     AssistantMessage,
+    Message,
     RequestMessageList,
     RequestToolList,
     ResponseMessageList,
@@ -12,6 +13,7 @@ from .message import (
 from .tool import ToolParamSchema, ToolSchema
 
 __all__ = [
+    "Message",
     "UserMessage",
     "SystemMessage",
     "ToolCallMessage",

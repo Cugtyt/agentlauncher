@@ -33,9 +33,11 @@ class ToolResultMessage:
     result: str
 
 
-type RequestMessageList = Sequence[
-    AssistantMessage | SystemMessage | ToolCallMessage | ToolResultMessage | UserMessage
-]
+type Message = (
+    UserMessage | SystemMessage | ToolCallMessage | AssistantMessage | ToolResultMessage
+)
+
+type RequestMessageList = Sequence[Message]
 
 type RequestToolList = Sequence[ToolSchema]
 

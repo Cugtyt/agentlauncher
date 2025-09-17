@@ -24,7 +24,7 @@ class EventBus:
             self._subscribers[event_type] = []
         self._subscribers[event_type].append(handler)
 
-    def emit(self, event: EventType) -> None:
+    async def emit(self, event: EventType) -> None:
         event_type = type(event)
         handlers = self._subscribers.get(event_type, [])
         if self._verbose != EventVerboseLevel.SILENT:

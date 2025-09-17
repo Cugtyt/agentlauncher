@@ -42,7 +42,7 @@ class LLMRuntime:
             else self._sub_agent_llm_handler
         )
         if not handler:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 LLMRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="LLM handler not found.",
@@ -63,14 +63,14 @@ class LLMRuntime:
                     event.agent_id,
                     self.event_bus,
                 )
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.agent_id,
                     response=cast(ResponseMessageList, response),
                 )
             )
         except Exception as e:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 LLMRuntimeErrorEvent(
                     agent_id=event.agent_id, error=str(e), request_event=event
                 )
@@ -78,7 +78,7 @@ class LLMRuntime:
 
     async def handle_llm_runtime_error(self, event: LLMRuntimeErrorEvent) -> None:
         if event.request_event.retry_count < 5:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 LLMRequestEvent(
                     agent_id=event.request_event.agent_id,
                     messages=event.request_event.messages,
@@ -87,7 +87,7 @@ class LLMRuntime:
                 )
             )
         else:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.request_event.agent_id,
                     response=[

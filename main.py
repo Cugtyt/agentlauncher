@@ -23,7 +23,7 @@ async def main() -> None:
         verbose=EventVerboseLevel.SILENT,
     )
 
-    await register(launcher)
+    register(launcher)
     await launcher.run(test_task)
     # for message in launcher.message_runtime.history:
     #     print(message)
@@ -38,6 +38,7 @@ async def main() -> None:
 
     #     result = await launcher.run(task=task)
         # print("Final Result:\n", result)
+    await launcher.shutdown()
 
 
 if __name__ == "__main__":

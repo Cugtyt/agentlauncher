@@ -2,10 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from agentlauncher.llm_interface import (
-    AssistantMessage,
-    ToolCallMessage,
-    ToolResultMessage,
-    UserMessage,
+    Message,
 )
 
 from .type import EventType
@@ -14,9 +11,7 @@ from .type import EventType
 @dataclass
 class MessagesAddEvent(EventType):
     agent_id: str
-    messages: Sequence[
-        UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage
-    ]
+    messages: Sequence[Message]
 
 
 @dataclass

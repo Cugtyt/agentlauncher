@@ -2,6 +2,9 @@ import asyncio
 from typing import Any
 
 from agentlauncher.events import (
+    AgentLauncherRunEvent,
+    AgentLauncherShutdownEvent,
+    AgentLauncherStopEvent,
     EventBus,
     EventHandler,
     EventType,
@@ -84,19 +87,40 @@ class AgentLauncher:
 
         return decorator
 
+    def register_message_handler(self, function):
+        self.message_runtime.register_message_handler(function)
+
+    def message_handler(self):
+        def decorator(func):
+            self.register_message_handler(func)
+            return func
+
+        return decorator
+
+    def register_conversation_handler(self, function):
+        self.message_runtime.register_conversation_handler(function)
+
+    def conversation_handler(self):
+        def decorator(func):
+            self.register_conversation_handler(func)
+            return func
+
+        return decorator
+
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
         if event.agent_id != AGENT_0_NAME:
             return
         if self._final_result and not self._final_result.done():
             self._final_result.set_result(event.result or "")
+            await self.event_bus.emit(AgentLauncherStopEvent(result=event.result or ""))
 
     async def run(
         self,
         task: str,
     ) -> str:
-        self.tool_runtime.setup()
+        await self.event_bus.emit(AgentLauncherRunEvent(task=task))
         self._final_result = asyncio.get_event_loop().create_future()
-        self.event_bus.emit(
+        await self.event_bus.emit(
             TaskCreateEvent(
                 task=task,
                 conversation=self.message_runtime.history,
@@ -107,3 +131,6 @@ class AgentLauncher:
             )
         )
         return await self._final_result
+
+    async def shutdown(self) -> None:
+        await self.event_bus.emit(AgentLauncherShutdownEvent())

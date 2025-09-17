@@ -1,11 +1,8 @@
 from dataclasses import dataclass
 
 from agentlauncher.llm_interface import (
-    AssistantMessage,
-    ToolCallMessage,
-    ToolResultMessage,
+    Message,
     ToolSchema,
-    UserMessage,
 )
 
 from .type import EventType
@@ -16,10 +13,7 @@ class TaskCreateEvent(EventType):
     task: str
     tool_schemas: list[ToolSchema]
     system_prompt: str | None = None
-    conversation: (
-        list[UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage]
-        | None
-    ) = None
+    conversation: list[Message] | None = None
 
 
 @dataclass

@@ -34,6 +34,7 @@ from agentlauncher.events import (
 )
 from agentlauncher.llm_interface import (
     AssistantMessage,
+    Message,
     ResponseMessageList,
     SystemMessage,
     ToolCallMessage,
@@ -226,7 +227,7 @@ async def gpt_stream_handler(
         if isinstance(chunk, ResponseOutputItemAddedEvent):
             if isinstance(chunk.item, ResponseOutputMessage):
                 partial_assistant_message = AssistantMessage(content="")
-                event_bus.emit(MessageStartStreamingEvent(agent_id=agent_id))
+                await event_bus.emit(MessageStartStreamingEvent(agent_id=agent_id))
             elif isinstance(chunk.item, ResponseFunctionToolCall):
                 partial_tool_call = ToolCallMessage(
                     tool_call_id=chunk.item.call_id,
@@ -234,7 +235,7 @@ async def gpt_stream_handler(
                     arguments={},
                 )
                 partial_tool_call_arguments = ""
-                event_bus.emit(
+                await event_bus.emit(
                     ToolCallNameStreamingEvent(
                         agent_id=agent_id,
                         tool_name=chunk.item.name,
@@ -245,7 +246,7 @@ async def gpt_stream_handler(
             if partial_assistant_message is None:
                 raise ValueError("Received text delta without starting message")
             partial_assistant_message.content += chunk.delta
-            event_bus.emit(
+            await event_bus.emit(
                 MessageDeltaStreamingEvent(agent_id=agent_id, delta=chunk.delta)
             )
         elif isinstance(chunk, ResponseTextDoneEvent):
@@ -253,7 +254,7 @@ async def gpt_stream_handler(
                 raise ValueError("Received text done without starting message")
             result.append(partial_assistant_message)
             partial_assistant_message = AssistantMessage(content="")
-            event_bus.emit(
+            await event_bus.emit(
                 MessageDoneStreamingEvent(
                     agent_id=agent_id, message=partial_assistant_message.content
                 )
@@ -264,7 +265,7 @@ async def gpt_stream_handler(
                     "Received function call arguments delta without starting tool call"
                 )
             partial_tool_call_arguments += chunk.delta
-            event_bus.emit(
+            await event_bus.emit(
                 ToolCallArgumentsDeltaStreamingEvent(
                     agent_id=agent_id,
                     tool_call_id=partial_tool_call.tool_call_id,
@@ -278,7 +279,7 @@ async def gpt_stream_handler(
                 )
             partial_tool_call.arguments = json.loads(partial_tool_call_arguments)
             result.append(partial_tool_call)
-            event_bus.emit(
+            await event_bus.emit(
                 ToolCallArgumentsDoneStreamingEvent(
                     agent_id=agent_id,
                     tool_call_id=partial_tool_call.tool_call_id,
@@ -290,7 +291,7 @@ async def gpt_stream_handler(
     return result
 
 
-async def register(launcher: AgentLauncher) -> None:
+def register(launcher: AgentLauncher) -> None:
     @launcher.tool(
         name="calculate",
         description="Calculate the result of the expression a * b + c.",
@@ -579,3 +580,25 @@ async def register(launcher: AgentLauncher) -> None:
                     f"[{event.agent_id}] ToolResult: {message.tool_name} "
                     f"result: {message.result}"
                 )
+
+    @launcher.message_handler()
+    async def count_words_handler(
+        messages: list[Message],
+    ) -> list[Message]:
+        for message in messages:
+            if isinstance(message, AssistantMessage):
+                word_count = len(message.content.split())
+                print(f"{'>' * 20} (Word count: {word_count})")
+        return messages
+
+    @launcher.conversation_handler()
+    async def trim_conversation_handler(
+        conversation: list[Message],
+    ) -> list[Message]:
+        max_messages = 10
+        if len(conversation) > max_messages and isinstance(
+            conversation[-1], AssistantMessage
+        ):
+            print(f"{'>' * 20} Trimming conversation to {max_messages} messages.")
+            return conversation[-max_messages:]
+        return conversation

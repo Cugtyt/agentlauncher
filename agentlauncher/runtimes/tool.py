@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from agentlauncher.events import (
     AgentFinishEvent,
+    AgentLauncherRunEvent,
     EventBus,
     ToolExecErrorEvent,
     ToolExecFinishEvent,
@@ -35,9 +36,10 @@ class ToolRuntime:
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tools_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
+        self.event_bus.subscribe(AgentLauncherRunEvent, self.setup)
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
-    def setup(self) -> None:
+    async def setup(self, event: AgentLauncherRunEvent) -> None:
         self.tools["create_sub_agent"] = Tool(
             name="create_sub_agent",
             function=self._create_sub_agent_tool,
@@ -71,7 +73,7 @@ class ToolRuntime:
         future = asyncio.get_event_loop().create_future()
         self.sub_agent_futures[agent_id] = future
 
-        self.event_bus.emit(
+        await self.event_bus.emit(
             AgentCreateEvent(
                 agent_id=agent_id,
                 task=task,
@@ -106,7 +108,7 @@ class ToolRuntime:
         agent_id: str,
         tool_call_id: str,
     ) -> str:
-        self.event_bus.emit(
+        await self.event_bus.emit(
             ToolExecStartEvent(
                 agent_id=agent_id,
                 tool_call_id=tool_call_id,
@@ -121,7 +123,7 @@ class ToolRuntime:
             else:
                 result = await asyncio.to_thread(tool.function, **arguments)
 
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 ToolExecFinishEvent(
                     agent_id=agent_id,
                     tool_call_id=tool_call_id,
@@ -131,7 +133,7 @@ class ToolRuntime:
             )
             return cast(str, result)
         except Exception as e:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 ToolExecErrorEvent(
                     agent_id=agent_id,
                     tool_call_id=tool_call_id,
@@ -146,7 +148,7 @@ class ToolRuntime:
             tc.tool_name for tc in event.tool_calls if tc.tool_name not in self.tools
         ]
         if missing_tools:
-            self.event_bus.emit(
+            await self.event_bus.emit(
                 ToolRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error=f"Tool(s) not found: {', '.join(missing_tools)}",
@@ -177,7 +179,7 @@ class ToolRuntime:
                     )
                 )
 
-        self.event_bus.emit(
+        await self.event_bus.emit(
             ToolsExecResultsEvent(
                 agent_id=event.agent_id,
                 tool_results=tool_results,
@@ -188,7 +190,7 @@ class ToolRuntime:
         return [tool for name, tool in self.tools.items() if name in tool_names]
 
     async def handle_tool_runtime_error(self, event: ToolRuntimeErrorEvent) -> None:
-        self.event_bus.emit(
+        await self.event_bus.emit(
             ToolsExecResultsEvent(
                 agent_id=event.agent_id,
                 tool_results=[],
