@@ -34,6 +34,7 @@ class MessageDoneStreamingEvent(EventType):
 @dataclass
 class MessageErrorStreamingEvent(EventType):
     agent_id: str
+    error: str
 
 
 @dataclass
@@ -67,3 +68,4 @@ class ToolCallArgumentsDoneStreamingEvent(EventType):
 class ToolCallArgumentsErrorStreamingEvent(EventType):
     agent_id: str
     tool_call_id: str
+    error: str
