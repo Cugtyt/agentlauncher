@@ -40,7 +40,6 @@ class ToolCallNameStreamingEvent(EventType):
 
 @dataclass
 class ToolCallArgumentsStartStreamingEvent(EventType):
-    agent_id: str
     tool_call_id: str
 
 
