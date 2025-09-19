@@ -13,7 +13,6 @@ class ToolCall:
 
 @dataclass
 class ToolsExecRequestEvent(EventType):
-    agent_id: str
     tool_calls: list[ToolCall]
 
 
@@ -26,19 +25,16 @@ class ToolResult:
 
 @dataclass
 class ToolsExecResultsEvent(EventType):
-    agent_id: str
     tool_results: list[ToolResult]
 
 
 @dataclass
 class ToolRuntimeErrorEvent(EventType):
-    agent_id: str
     error: str
 
 
 @dataclass
 class ToolExecStartEvent(EventType):
-    agent_id: str
     tool_call_id: str
     tool_name: str
     arguments: dict[str, Any]
@@ -46,7 +42,6 @@ class ToolExecStartEvent(EventType):
 
 @dataclass
 class ToolExecFinishEvent(EventType):
-    agent_id: str
     tool_call_id: str
     tool_name: str
     result: str
@@ -54,7 +49,6 @@ class ToolExecFinishEvent(EventType):
 
 @dataclass
 class ToolExecErrorEvent(EventType):
-    agent_id: str
     tool_call_id: str
     tool_name: str
     error: str

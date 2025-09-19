@@ -112,16 +112,23 @@ class AgentLauncher:
             return
         if self._final_result and not self._final_result.done():
             self._final_result.set_result(event.result or "")
-            await self.event_bus.emit(AgentLauncherStopEvent(result=event.result or ""))
+            await self.event_bus.emit(
+                AgentLauncherStopEvent(
+                    agent_id=event.agent_id, result=event.result or ""
+                )
+            )
 
     async def run(
         self,
         task: str,
     ) -> str:
-        await self.event_bus.emit(AgentLauncherRunEvent(task=task))
+        await self.event_bus.emit(
+            AgentLauncherRunEvent(agent_id=AGENT_0_NAME, task=task)
+        )
         self._final_result = asyncio.get_event_loop().create_future()
         await self.event_bus.emit(
             TaskCreateEvent(
+                agent_id=AGENT_0_NAME,
                 task=task,
                 conversation=self.message_runtime.history,
                 system_prompt=self.system_prompt,
@@ -133,4 +140,4 @@ class AgentLauncher:
         return await self._final_result
 
     async def shutdown(self) -> None:
-        await self.event_bus.emit(AgentLauncherShutdownEvent())
+        await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=AGENT_0_NAME))

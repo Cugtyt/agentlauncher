@@ -15,7 +15,6 @@ from .type import EventType
 
 @dataclass
 class LLMRequestEvent(EventType):
-    agent_id: str
     messages: list[
         UserMessage
         | AssistantMessage
@@ -29,12 +28,10 @@ class LLMRequestEvent(EventType):
 
 @dataclass
 class LLMResponseEvent(EventType):
-    agent_id: str
     response: Sequence[AssistantMessage | ToolCallMessage]
 
 
 @dataclass
 class LLMRuntimeErrorEvent(EventType):
-    agent_id: str | None
     error: str
     request_event: LLMRequestEvent

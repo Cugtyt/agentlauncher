@@ -10,36 +10,30 @@ from .type import EventType
 
 @dataclass
 class MessagesAddEvent(EventType):
-    agent_id: str
     messages: Sequence[Message]
 
 
 @dataclass
-class MessageStartStreamingEvent(EventType):
-    agent_id: str
+class MessageStartStreamingEvent(EventType): ...
 
 
 @dataclass
 class MessageDeltaStreamingEvent(EventType):
-    agent_id: str
     delta: str
 
 
 @dataclass
 class MessageDoneStreamingEvent(EventType):
-    agent_id: str
     message: str
 
 
 @dataclass
 class MessageErrorStreamingEvent(EventType):
-    agent_id: str
     error: str
 
 
 @dataclass
 class ToolCallNameStreamingEvent(EventType):
-    agent_id: str
     tool_call_id: str
     tool_name: str
 
@@ -52,20 +46,17 @@ class ToolCallArgumentsStartStreamingEvent(EventType):
 
 @dataclass
 class ToolCallArgumentsDeltaStreamingEvent(EventType):
-    agent_id: str
     tool_call_id: str
     arguments_delta: str
 
 
 @dataclass
 class ToolCallArgumentsDoneStreamingEvent(EventType):
-    agent_id: str
     tool_call_id: str
     arguments: str
 
 
 @dataclass
 class ToolCallArgumentsErrorStreamingEvent(EventType):
-    agent_id: str
     tool_call_id: str
     error: str

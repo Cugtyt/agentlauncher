@@ -18,5 +18,4 @@ class TaskCreateEvent(EventType):
 
 @dataclass
 class TaskFinishEvent(EventType):
-    agent_id: str
     result: str
