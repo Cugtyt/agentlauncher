@@ -1,5 +1,7 @@
 import asyncio
 import enum
+import logging
+from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
@@ -14,23 +16,24 @@ class EventVerboseLevel(enum.IntEnum):
 
 class EventBus:
     def __init__(self, verbose: EventVerboseLevel = EventVerboseLevel.SILENT):
-        self._subscribers: dict[type[EventType], list[EventHandler[Any]]] = {}
+        self._subscribers: dict[type[EventType], list[EventHandler[Any]]] = defaultdict(
+            list
+        )
         self._verbose = verbose
+        self._logger = logging.getLogger(__name__)
 
     def subscribe(
         self, event_type: type[EventType], handler: EventHandler[Any]
     ) -> None:
-        if event_type not in self._subscribers:
-            self._subscribers[event_type] = []
         self._subscribers[event_type].append(handler)
 
     async def emit(self, event: EventType) -> None:
         event_type = type(event)
         handlers = self._subscribers.get(event_type, [])
         if self._verbose != EventVerboseLevel.SILENT:
-            asyncio.create_task(asyncio.to_thread(self.log_event, event))
+            self.log_event(event)
         for handler in handlers:
-            asyncio.ensure_future(handler(event))
+            asyncio.create_task(handler(event))
 
     def log_event(self, event: EventType) -> None:
         if self._verbose == EventVerboseLevel.SILENT:
@@ -39,12 +42,14 @@ class EventBus:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
         if self._verbose == EventVerboseLevel.BASIC:
-            print(
+            self._logger.info(
                 f"[{timestamp}][{event.agent_id}] Event emitted: "
                 f"{event.__class__.__name__}"
             )
             return
 
-        print(f"----- [{timestamp}] Event emitted: {event.__class__.__name__} -----")
-        print(event)
-        print("-------------------------")
+        self._logger.debug(
+            f"----- [{timestamp}] Event emitted: {event.__class__.__name__} -----"
+        )
+        self._logger.debug(f"{event}")
+        self._logger.debug("-------------------------")

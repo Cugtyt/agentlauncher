@@ -1,7 +1,7 @@
 from abc import ABC
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 
 @dataclass
@@ -10,4 +10,4 @@ class EventType(ABC):
 
 
 T = TypeVar("T", bound=EventType)
-type EventHandler[T] = Callable[[T], Awaitable[None]]
+type EventHandler[T] = Callable[[T], Coroutine[Any, Any, None]]
