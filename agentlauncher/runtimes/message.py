@@ -15,12 +15,13 @@ from agentlauncher.llm_interface import (
 )
 
 from .shared import AGENT_0_NAME
+from .type import RuntimeType
 
 
-class MessageRuntime:
+class MessageRuntime(RuntimeType):
     def __init__(self, event_bus: EventBus):
+        super().__init__(event_bus)
         self.history: list[Message] = []
-        self.event_bus = event_bus
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)

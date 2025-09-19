@@ -16,14 +16,15 @@ from agentlauncher.llm_interface.message import (
 )
 
 from .shared import AGENT_0_NAME
+from .type import RuntimeType
 
 
-class LLMRuntime:
+class LLMRuntime(RuntimeType):
     def __init__(
         self,
         event_bus: EventBus,
     ):
-        self.event_bus = event_bus
+        super().__init__(event_bus)
         self._main_agent_llm_handler: LLMHandler | None = None
         self._sub_agent_llm_handler: LLMHandler | None = None
         self.event_bus.subscribe(LLMRequestEvent, self.handle_llm_request)

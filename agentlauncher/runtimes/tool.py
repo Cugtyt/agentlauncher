@@ -19,29 +19,31 @@ from agentlauncher.events import (
 from agentlauncher.events.agent import AgentCreateEvent
 from agentlauncher.llm_interface import ToolParamSchema, ToolSchema
 
+from .shared import CREATE_SUB_AGENT_TOOL_NAME
+from .type import RuntimeType
+
 
 @dataclass
 class Tool(ToolSchema):
     function: Callable[..., str | Awaitable[str]]
 
 
-class ToolRuntime:
+class ToolRuntime(RuntimeType):
     def __init__(
         self,
         event_bus: EventBus,
     ):
-        self.event_bus = event_bus
+        super().__init__(event_bus)
         self.tools: dict[str, Tool] = {}
 
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tools_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
-        self.event_bus.subscribe(AgentLauncherRunEvent, self.setup)
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
-    async def setup(self, event: AgentLauncherRunEvent) -> None:
-        self.tools["create_sub_agent"] = Tool(
-            name="create_sub_agent",
+    def setup(self) -> None:
+        self.tools[CREATE_SUB_AGENT_TOOL_NAME] = Tool(
+            name=CREATE_SUB_AGENT_TOOL_NAME,
             function=self._create_sub_agent_tool,
             description="Create a sub-agent to handle a specific task.",
             parameters={

@@ -28,6 +28,7 @@ from agentlauncher.llm_interface import (
 )
 
 from .shared import AGENT_0_NAME, AGENT_0_SYSTEM_PROMPT
+from .type import RuntimeType
 
 
 class Agent:
@@ -117,9 +118,9 @@ class Agent:
         )
 
 
-class AgentRuntime:
+class AgentRuntime(RuntimeType):
     def __init__(self, event_bus: EventBus):
-        self.event_bus = event_bus
+        super().__init__(event_bus)
         self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_create)
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)

@@ -19,6 +19,7 @@ from agentlauncher.runtimes import (
     AgentRuntime,
     LLMRuntime,
     MessageRuntime,
+    RuntimeType,
     ToolRuntime,
 )
 
@@ -35,6 +36,7 @@ class AgentLauncher:
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus)
         self.message_runtime = MessageRuntime(self.event_bus)
+        self.runtimes: list[RuntimeType] = []
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self._final_result: asyncio.Future[str] | None = None
 
@@ -122,9 +124,7 @@ class AgentLauncher:
         self,
         task: str,
     ) -> str:
-        await self.event_bus.emit(
-            AgentLauncherRunEvent(agent_id=AGENT_0_NAME, task=task)
-        )
+        self.tool_runtime.setup()
         self._final_result = asyncio.get_event_loop().create_future()
         await self.event_bus.emit(
             TaskCreateEvent(
@@ -141,3 +141,6 @@ class AgentLauncher:
 
     async def shutdown(self) -> None:
         await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=AGENT_0_NAME))
+
+    def register_runtime(self, runtime_type: type[RuntimeType]) -> None:
+        self.runtimes.append(runtime_type(self.event_bus))

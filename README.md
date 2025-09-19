@@ -31,7 +31,7 @@ Agent lifecycles are managed automatically, similar to jobs in Kubernetes—sub-
 
 ## Example Usage
 
-See `main.py` for a usage example. Register tools and LLM handlers, then run tasks interactively:
+See `examples/main.py` for a usage example. Register tools and LLM handlers, then run tasks interactively:
 
 ```python
 from agentlauncher import AgentLauncher
@@ -66,26 +66,16 @@ launcher = AgentLauncher()
 def calculate_tool(a: int, b: int, c: int) -> str:
     return str(a * b + c)
 
-@launcher.main_agent_llm_handler(name="gpt-4")
-async def main_agent_handler(
-    messages: list[
-        UserMessage
-        | AssistantMessage
-        | SystemMessage
-        | ToolCallMessage
-        | ToolResultMessage
-    ],
-    tools: list[ToolSchema],
-    agent_id: str,
-    event_bus: EventBus,
-) -> ResponseMessageList:
-    return await your_llm_function(messages, tools, agent_id, event_bus)
-
+launcher.register_main_agent_llm_handler(your_llm_function)
+launcher.register_sub_agent_llm_handler(your_llm_function) # optional
 
 # you can subscribe any events you want
 @launcher.subscribe_event(MessageDeltaStreamingEvent)
 async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
     print(f"{event.delta}", end="", flush=True)
+
+# for complex scenarios, you can define your own runtime to handle multiple events
+launcher.register_runtime(StreamLoggingRuntime)
 
 while True:
     task = input("Enter your task (or 'exit' to quit): ")
