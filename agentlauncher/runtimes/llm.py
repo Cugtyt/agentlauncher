@@ -66,7 +66,7 @@ class LLMRuntime:
             await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.agent_id,
-                    request=event,
+                    request_event=event,
                     response=cast(ResponseMessageList, response),
                 )
             )
@@ -91,7 +91,7 @@ class LLMRuntime:
             await self.event_bus.emit(
                 LLMResponseEvent(
                     agent_id=event.request_event.agent_id,
-                    request=event.request_event,
+                    request_event=event.request_event,
                     response=[
                         AssistantMessage(content="Runtime error: " + event.error)
                     ],

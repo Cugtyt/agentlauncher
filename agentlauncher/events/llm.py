@@ -28,7 +28,7 @@ class LLMRequestEvent(EventType):
 
 @dataclass
 class LLMResponseEvent(EventType):
-    request: LLMRequestEvent
+    request_event: LLMRequestEvent
     response: Sequence[AssistantMessage | ToolCallMessage]
 
 
