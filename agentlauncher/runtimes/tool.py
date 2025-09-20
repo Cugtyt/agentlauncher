@@ -30,17 +30,18 @@ class ToolRuntime(RuntimeType):
     def __init__(
         self,
         event_bus: EventBus,
+        sub_agent_tool: bool = True,
     ):
         super().__init__(event_bus)
         self.tools: dict[str, Tool] = {}
-
+        self.enable_sub_agent_tool = sub_agent_tool
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tools_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
-    def setup(self) -> None:
-        if CREATE_SUB_AGENT_TOOL_NAME in self.tools:
+    def setup_sub_agent_tool(self) -> None:
+        if not self.enable_sub_agent_tool or CREATE_SUB_AGENT_TOOL_NAME in self.tools:
             return
         self.tools[CREATE_SUB_AGENT_TOOL_NAME] = Tool(
             name=CREATE_SUB_AGENT_TOOL_NAME,

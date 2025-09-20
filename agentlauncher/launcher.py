@@ -28,12 +28,13 @@ class AgentLauncher:
         self,
         system_prompt: str = PRIMARY_AGENT_SYSTEM_PROMPT,
         verbose: EventVerboseLevel = EventVerboseLevel.SILENT,
+        sub_agent_tool: bool = True,
     ):
         self.event_bus = EventBus(verbose=verbose)
         self.system_prompt = system_prompt
         self.agent_runtime = AgentRuntime(self.event_bus)
         self.llm_runtime = LLMRuntime(self.event_bus)
-        self.tool_runtime = ToolRuntime(self.event_bus)
+        self.tool_runtime = ToolRuntime(self.event_bus, sub_agent_tool=sub_agent_tool)
         self.message_runtime = MessageRuntime(self.event_bus)
         self.runtimes: list[RuntimeType] = []
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
@@ -129,7 +130,7 @@ class AgentLauncher:
         async with self._agent_lock:
             agent_id = generate_primary_agent_id(len(self.primary_agents))
             self.primary_agents.add(agent_id)
-            self.tool_runtime.setup()
+            self.tool_runtime.setup_sub_agent_tool()
             self._final_results[agent_id] = asyncio.get_event_loop().create_future()
 
         await self.event_bus.emit(
