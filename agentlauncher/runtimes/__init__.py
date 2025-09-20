@@ -1,7 +1,13 @@
 from .agent import AgentRuntime
 from .llm import LLMRuntime
 from .message import MessageRuntime
-from .shared import AGENT_0_NAME, AGENT_0_SYSTEM_PROMPT
+from .shared import (
+    PRIMARY_AGENT_SYSTEM_PROMPT,
+    generate_primary_agent_id,
+    generate_sub_agent_id,
+    get_primary_agent_id,
+    is_primary_agent,
+)
 from .tool import ToolRuntime
 from .type import RuntimeType
 
@@ -10,7 +16,10 @@ __all__ = [
     "LLMRuntime",
     "AgentRuntime",
     "MessageRuntime",
-    "AGENT_0_NAME",
-    "AGENT_0_SYSTEM_PROMPT",
+    "PRIMARY_AGENT_SYSTEM_PROMPT",
     "RuntimeType",
+    "generate_primary_agent_id",
+    "generate_sub_agent_id",
+    "get_primary_agent_id",
+    "is_primary_agent",
 ]

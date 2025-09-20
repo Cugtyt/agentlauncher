@@ -15,7 +15,7 @@ from agentlauncher.llm_interface.message import (
     ResponseMessageList,
 )
 
-from .shared import AGENT_0_NAME
+from .shared import is_primary_agent
 from .type import RuntimeType
 
 
@@ -25,21 +25,21 @@ class LLMRuntime(RuntimeType):
         event_bus: EventBus,
     ):
         super().__init__(event_bus)
-        self._main_agent_llm_handler: LLMHandler | None = None
+        self._primary_agent_llm_handler: LLMHandler | None = None
         self._sub_agent_llm_handler: LLMHandler | None = None
         self.event_bus.subscribe(LLMRequestEvent, self.handle_llm_request)
         self.event_bus.subscribe(LLMRuntimeErrorEvent, self.handle_llm_runtime_error)
 
-    def set_main_agent_handler(self, handler: LLMHandler) -> None:
-        self._main_agent_llm_handler = handler
+    def set_primary_agent_handler(self, handler: LLMHandler) -> None:
+        self._primary_agent_llm_handler = handler
 
     def set_sub_agent_handler(self, handler: LLMHandler) -> None:
         self._sub_agent_llm_handler = handler
 
     async def handle_llm_request(self, event: LLMRequestEvent) -> None:
         handler = (
-            self._main_agent_llm_handler
-            if event.agent_id == AGENT_0_NAME or not self._sub_agent_llm_handler
+            self._primary_agent_llm_handler
+            if is_primary_agent(event.agent_id) or not self._sub_agent_llm_handler
             else self._sub_agent_llm_handler
         )
         if not handler:

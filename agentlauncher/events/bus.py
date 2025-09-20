@@ -2,7 +2,6 @@ import asyncio
 import enum
 import logging
 from collections import defaultdict
-from datetime import datetime
 from typing import Any
 
 from .type import EventHandler, EventType
@@ -39,17 +38,12 @@ class EventBus:
         if self._verbose == EventVerboseLevel.SILENT:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
         if self._verbose == EventVerboseLevel.BASIC:
             self._logger.info(
-                f"[{timestamp}][{event.agent_id}] Event emitted: "
-                f"{event.__class__.__name__}"
+                f"[{event.agent_id}] Event emitted: {event.__class__.__name__}"
             )
             return
 
-        self._logger.debug(
-            f"----- [{timestamp}] Event emitted: {event.__class__.__name__} -----"
-        )
+        self._logger.debug(f"----- Event emitted: {event.__class__.__name__} -----")
         self._logger.debug(f"{event}")
         self._logger.debug("-------------------------")

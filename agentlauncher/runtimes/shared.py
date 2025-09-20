@@ -1,6 +1,8 @@
-AGENT_0_NAME = "agent-0"
+import uuid
+
+PRIMARY_AGENT_PREFIX = "agent"
 CREATE_SUB_AGENT_TOOL_NAME = "create_sub_agent"
-AGENT_0_SYSTEM_PROMPT = f"""Your primary role is to wisely delegate tasks
+PRIMARY_AGENT_SYSTEM_PROMPT = f"""Your primary role is to wisely delegate tasks
 by creating sub-agents whenever a task requires multiple steps or tools.
 Try to avoid creating sub-agents for tasks that only require a single step.
 Direct execution is 10x more costly than delegation and increases the workload.
@@ -22,3 +24,19 @@ so conversation is not available for back-and-forth interactions.
 Describe your efficient delegation strategy before creating sub-agents.
 Organize results for easy understanding, you don't need to report how you delegated.
 """
+
+
+def generate_primary_agent_id(index: int) -> str:
+    return f"{PRIMARY_AGENT_PREFIX}{index}"
+
+
+def generate_sub_agent_id(primary_agent_id: str) -> str:
+    return f"{primary_agent_id}_{uuid.uuid4()}"
+
+
+def get_primary_agent_id(agent_id: str) -> str:
+    return agent_id.split("_")[0]
+
+
+def is_primary_agent(agent_id: str) -> bool:
+    return agent_id.startswith(PRIMARY_AGENT_PREFIX) and "_" not in agent_id

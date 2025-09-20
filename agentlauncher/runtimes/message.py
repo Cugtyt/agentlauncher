@@ -14,7 +14,7 @@ from agentlauncher.llm_interface import (
     UserMessage,
 )
 
-from .shared import AGENT_0_NAME
+from .shared import is_primary_agent
 from .type import RuntimeType
 
 
@@ -34,7 +34,7 @@ class MessageRuntime(RuntimeType):
         ) = None
 
     async def handle_llm_response(self, event: LLMResponseEvent) -> None:
-        if event.agent_id != AGENT_0_NAME:
+        if not is_primary_agent(event.agent_id):
             return
         if self.response_message_handler:
             event.response = await self.response_message_handler(event.response)
@@ -47,12 +47,12 @@ class MessageRuntime(RuntimeType):
         self.history.append(UserMessage(content=event.task))
         await self.event_bus.emit(
             MessagesAddEvent(
-                agent_id=AGENT_0_NAME, messages=[UserMessage(content=event.task)]
+                agent_id=event.agent_id, messages=[UserMessage(content=event.task)]
             )
         )
 
     async def handle_tools_exec_results(self, event: ToolsExecResultsEvent) -> None:
-        if event.agent_id != AGENT_0_NAME:
+        if not is_primary_agent(event.agent_id):
             return
         messages: list[ToolResultMessage] = []
         for result in event.tool_results:
@@ -70,7 +70,7 @@ class MessageRuntime(RuntimeType):
         )
 
     async def handle_conversation_update(self, event: MessagesAddEvent) -> None:
-        if event.agent_id == AGENT_0_NAME and self.conversation_handler:
+        if is_primary_agent(event.agent_id) and self.conversation_handler:
             self.history = list(await self.conversation_handler(self.history))
 
     def register_message_handler(

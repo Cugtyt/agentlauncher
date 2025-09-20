@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -18,7 +17,7 @@ from agentlauncher.events import (
 from agentlauncher.events.agent import AgentCreateEvent
 from agentlauncher.llm_interface import ToolParamSchema, ToolSchema
 
-from .shared import CREATE_SUB_AGENT_TOOL_NAME
+from .shared import CREATE_SUB_AGENT_TOOL_NAME, generate_sub_agent_id
 from .type import RuntimeType
 
 
@@ -41,6 +40,8 @@ class ToolRuntime(RuntimeType):
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
     def setup(self) -> None:
+        if CREATE_SUB_AGENT_TOOL_NAME in self.tools:
+            return
         self.tools[CREATE_SUB_AGENT_TOOL_NAME] = Tool(
             name=CREATE_SUB_AGENT_TOOL_NAME,
             function=self._create_sub_agent_tool,
@@ -69,8 +70,10 @@ class ToolRuntime(RuntimeType):
         if not future.done():
             future.set_result(event.result or "")
 
-    async def _create_sub_agent_tool(self, task: str, tool_name_list: list[str]) -> str:
-        agent_id = str(uuid.uuid4())
+    async def _create_sub_agent_tool(
+        self, task: str, tool_name_list: list[str], primary_agent_id: str
+    ) -> str:
+        agent_id = generate_sub_agent_id(primary_agent_id)
         future = asyncio.get_event_loop().create_future()
         self.sub_agent_futures[agent_id] = future
 
@@ -160,7 +163,12 @@ class ToolRuntime(RuntimeType):
         tasks = [
             self.tool_exec(
                 tool_name=tool_call.tool_name,
-                arguments=tool_call.arguments,
+                arguments=tool_call.arguments
+                if tool_call.tool_name != CREATE_SUB_AGENT_TOOL_NAME
+                else {
+                    **tool_call.arguments,
+                    "primary_agent_id": event.agent_id,
+                },
                 agent_id=event.agent_id,
                 tool_call_id=tool_call.tool_call_id,
             )

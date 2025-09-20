@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from gpt import gpt_handler
 from helper import register_tools
@@ -32,33 +33,46 @@ Each step may require different tools or information sources. Provide a clear su
 
 async def main() -> None:
     launcher = AgentLauncher(
-        verbose=EventVerboseLevel.SILENT,
+        verbose=EventVerboseLevel.BASIC,
     )
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("azure").setLevel(logging.WARNING)
 
     register_tools(launcher)
     # register_message_handlers(launcher)
-    launcher.register_main_agent_llm_handler(gpt_handler)
+    launcher.register_primary_agent_llm_handler(gpt_handler)
     launcher.register_runtime(StreamLoggingRuntime)
 
-    @launcher.subscribe_event(MessagesAddEvent)
+    # @launcher.subscribe_event(MessagesAddEvent)
     async def handle_messages_add_event(event: MessagesAddEvent):
         for message in event.messages:
             if isinstance(message, UserMessage):
-                print(f"[{event.agent_id}] User: {message.content}")
+                logger.info(f"[{event.agent_id}] User: {message.content}")
             elif isinstance(message, AssistantMessage):
-                print(f"[{event.agent_id}] Assistant: {message.content}")
+                logger.info(f"[{event.agent_id}] Assistant: {message.content}")
             elif isinstance(message, ToolCallMessage):
-                print(
+                logger.info(
                     f"[{event.agent_id}] ToolCall: {message.tool_name} "
                     f"with arguments {message.arguments}"
                 )
             elif isinstance(message, ToolResultMessage):
-                print(
+                logger.info(
                     f"[{event.agent_id}] ToolResult: {message.tool_name} "
                     f"result: {message.result}"
                 )
 
-    await launcher.run(test_task)
+    tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
+    results = await asyncio.gather(*tasks)
+
+    for result in results:
+        print("Result:\n", result)
+
+    # for message in launcher.message_runtime.history:
+    #     print(message)
+
+    # while True:
     # for message in launcher.message_runtime.history:
     #     print(message)
 
@@ -72,7 +86,7 @@ async def main() -> None:
 
     #     result = await launcher.run(task=task)
     # print("Final Result:\n", result)
-    await launcher.shutdown()
+    # await launcher.shutdown()
 
 
 if __name__ == "__main__":

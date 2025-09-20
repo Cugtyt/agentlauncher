@@ -13,20 +13,20 @@ from agentlauncher.events import (
 )
 from agentlauncher.llm_interface import ToolParamSchema
 from agentlauncher.runtimes import (
-    AGENT_0_NAME,
-    AGENT_0_SYSTEM_PROMPT,
+    PRIMARY_AGENT_SYSTEM_PROMPT,
     AgentRuntime,
     LLMRuntime,
     MessageRuntime,
     RuntimeType,
     ToolRuntime,
+    generate_primary_agent_id,
 )
 
 
 class AgentLauncher:
     def __init__(
         self,
-        system_prompt: str = AGENT_0_SYSTEM_PROMPT,
+        system_prompt: str = PRIMARY_AGENT_SYSTEM_PROMPT,
         verbose: EventVerboseLevel = EventVerboseLevel.SILENT,
     ):
         self.event_bus = EventBus(verbose=verbose)
@@ -37,7 +37,9 @@ class AgentLauncher:
         self.message_runtime = MessageRuntime(self.event_bus)
         self.runtimes: list[RuntimeType] = []
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
-        self._final_result: asyncio.Future[str] | None = None
+        self._final_results: dict[str, asyncio.Future[str]] = {}
+        self.primary_agents: set[str] = set()
+        self._agent_lock = asyncio.Lock()
 
     def register_tool(
         self,
@@ -61,12 +63,12 @@ class AgentLauncher:
 
         return decorator
 
-    def register_main_agent_llm_handler(self, function):
-        self.llm_runtime.set_main_agent_handler(function)
+    def register_primary_agent_llm_handler(self, function):
+        self.llm_runtime.set_primary_agent_handler(function)
 
-    def main_agent_llm_handler(self):
+    def primary_agent_llm_handler(self):
         def decorator(func):
-            self.register_main_agent_llm_handler(func)
+            self.register_primary_agent_llm_handler(func)
             return func
 
         return decorator
@@ -109,25 +111,30 @@ class AgentLauncher:
         return decorator
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
-        if event.agent_id != AGENT_0_NAME:
-            return
-        if self._final_result and not self._final_result.done():
-            self._final_result.set_result(event.result or "")
+        async with self._agent_lock:
+            if (
+                event.agent_id not in self.primary_agents
+                or event.agent_id not in self._final_results
+            ):
+                return
+
+            self._final_results[event.agent_id].set_result(event.result or "")
             await self.event_bus.emit(
                 AgentLauncherStopEvent(
                     agent_id=event.agent_id, result=event.result or ""
                 )
             )
 
-    async def run(
-        self,
-        task: str,
-    ) -> str:
-        self.tool_runtime.setup()
-        self._final_result = asyncio.get_event_loop().create_future()
+    async def run(self, task: str) -> str:
+        async with self._agent_lock:
+            agent_id = generate_primary_agent_id(len(self.primary_agents))
+            self.primary_agents.add(agent_id)
+            self.tool_runtime.setup()
+            self._final_results[agent_id] = asyncio.get_event_loop().create_future()
+
         await self.event_bus.emit(
             TaskCreateEvent(
-                agent_id=AGENT_0_NAME,
+                agent_id=agent_id,
                 task=task,
                 conversation=self.message_runtime.history,
                 system_prompt=self.system_prompt,
@@ -136,10 +143,17 @@ class AgentLauncher:
                 ),
             )
         )
-        return await self._final_result
+        result = await self._final_results[agent_id]
+        async with self._agent_lock:
+            del self._final_results[agent_id]
+        return result
 
     async def shutdown(self) -> None:
-        await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=AGENT_0_NAME))
+        async with self._agent_lock:
+            primary_agents = list(self.primary_agents)
+            self.primary_agents.clear()
+        for agent_id in primary_agents:
+            await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=agent_id))
 
     def register_runtime(self, runtime_type: type[RuntimeType]) -> None:
         self.runtimes.append(runtime_type(self.event_bus))

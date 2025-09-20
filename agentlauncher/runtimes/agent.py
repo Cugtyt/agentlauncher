@@ -27,7 +27,7 @@ from agentlauncher.llm_interface import (
     UserMessage,
 )
 
-from .shared import AGENT_0_NAME, AGENT_0_SYSTEM_PROMPT
+from .shared import PRIMARY_AGENT_SYSTEM_PROMPT, is_primary_agent
 from .type import RuntimeType
 
 
@@ -138,10 +138,10 @@ class AgentRuntime(RuntimeType):
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
         await self.event_bus.emit(
             AgentCreateEvent(
-                agent_id=AGENT_0_NAME,
+                agent_id=event.agent_id,
                 task=event.task,
                 conversation=event.conversation or [],
-                system_prompt=event.system_prompt or AGENT_0_SYSTEM_PROMPT,
+                system_prompt=event.system_prompt or PRIMARY_AGENT_SYSTEM_PROMPT,
                 tool_schemas=event.tool_schemas,
             )
         )
@@ -192,7 +192,7 @@ class AgentRuntime(RuntimeType):
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
         if event.agent_id in self.agents:
-            if event.agent_id != AGENT_0_NAME:
+            if not is_primary_agent(event.agent_id):
                 del self.agents[event.agent_id]
                 await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
             else:
@@ -224,6 +224,6 @@ class AgentRuntime(RuntimeType):
             await self.event_bus.emit(AgentDeletedEvent(agent_id=agent_id))
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
-        if event.agent_id == AGENT_0_NAME and event.agent_id in self.agents:
+        if is_primary_agent(event.agent_id) and event.agent_id in self.agents:
             del self.agents[event.agent_id]
             await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
