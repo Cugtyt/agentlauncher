@@ -35,6 +35,8 @@ def generate_sub_agent_id(primary_agent_id: str) -> str:
 
 
 def get_primary_agent_id(agent_id: str) -> str:
+    if is_primary_agent(agent_id):
+        return agent_id
     return agent_id.split("_")[0]
 
 
