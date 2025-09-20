@@ -1,7 +1,7 @@
 import asyncio
 
 from gpt import gpt_handler
-from helper import register_message_handlers, register_tools
+from helper import register_tools
 from stream_logging_runtime import StreamLoggingRuntime
 
 from agentlauncher import (

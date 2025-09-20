@@ -2,7 +2,6 @@ import asyncio
 from typing import Any
 
 from agentlauncher.events import (
-    AgentLauncherRunEvent,
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
     EventBus,
