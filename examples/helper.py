@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agentlauncher import (
     AgentLauncher,
@@ -260,4 +261,14 @@ def register_message_handlers(launcher: AgentLauncher) -> None:
         ):
             print(f"{'>' * 20} Trimming conversation to {max_messages} messages.")
             return conversation[-max_messages:]
+        return conversation
+
+
+def register_conversation_counter(launcher: AgentLauncher) -> None:
+    @launcher.conversation_handler()
+    async def conversation_counter(
+        conversation: list[Message], agent_id: str
+    ) -> list[Message]:
+        logger = logging.getLogger(__name__)
+        logger.info(f"[{agent_id}] Conversation length: {len(conversation)} messages.")
         return conversation

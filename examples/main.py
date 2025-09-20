@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from gpt import gpt_handler
-from helper import register_tools
+from helper import register_conversation_counter, register_tools
 from stream_logging_runtime import StreamLoggingRuntime
 
 from agentlauncher import (
@@ -33,7 +33,7 @@ Each step may require different tools or information sources. Provide a clear su
 
 async def main() -> None:
     launcher = AgentLauncher(
-        verbose=EventVerboseLevel.BASIC,
+        verbose=EventVerboseLevel.SILENT,
     )
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
@@ -45,7 +45,7 @@ async def main() -> None:
     launcher.register_primary_agent_llm_handler(gpt_handler)
     launcher.register_runtime(StreamLoggingRuntime)
 
-    # @launcher.subscribe_event(MessagesAddEvent)
+    @launcher.subscribe_event(MessagesAddEvent)
     async def handle_messages_add_event(event: MessagesAddEvent):
         for message in event.messages:
             if isinstance(message, UserMessage):

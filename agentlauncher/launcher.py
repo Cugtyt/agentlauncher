@@ -12,6 +12,7 @@ from agentlauncher.events import (
     TaskFinishEvent,
 )
 from agentlauncher.llm_interface import ToolParamSchema
+from agentlauncher.llm_interface.message import Message
 from agentlauncher.runtimes import (
     PRIMARY_AGENT_SYSTEM_PROMPT,
     AgentRuntime,
@@ -126,7 +127,7 @@ class AgentLauncher:
                 )
             )
 
-    async def run(self, task: str) -> str:
+    async def run(self, task: str, history: list[Message] | None = None) -> str:
         async with self._agent_lock:
             agent_id = generate_primary_agent_id(len(self.primary_agents))
             self.primary_agents.add(agent_id)
@@ -137,7 +138,7 @@ class AgentLauncher:
             TaskCreateEvent(
                 agent_id=agent_id,
                 task=task,
-                conversation=self.message_runtime.history,
+                conversation=history,
                 system_prompt=self.system_prompt,
                 tool_schemas=self.tool_runtime.get_tool_schemas(
                     list(self.tool_runtime.tools.keys())
