@@ -1,11 +1,10 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from agentlauncher.eventbus import EventType
 from agentlauncher.llm_interface import (
     Message,
 )
-
-from .type import EventType
 
 
 @dataclass

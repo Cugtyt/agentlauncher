@@ -1,4 +1,3 @@
-from .events.bus import EventVerboseLevel
 from .launcher import AgentLauncher
 
-__all__ = ["AgentLauncher", "EventVerboseLevel"]
+__all__ = ["AgentLauncher"]

@@ -1,13 +1,10 @@
 import asyncio
 from typing import Any
 
+from agentlauncher.eventbus import EventBus, EventHandler, EventType
 from agentlauncher.events import (
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
-    EventBus,
-    EventHandler,
-    EventType,
-    EventVerboseLevel,
     TaskCreateEvent,
     TaskFinishEvent,
 )
@@ -28,10 +25,9 @@ class AgentLauncher:
     def __init__(
         self,
         system_prompt: str = PRIMARY_AGENT_SYSTEM_PROMPT,
-        verbose: EventVerboseLevel = EventVerboseLevel.SILENT,
         sub_agent_tool: bool = True,
     ):
-        self.event_bus = EventBus(verbose=verbose)
+        self.event_bus = EventBus()
         self.system_prompt = system_prompt
         self.agent_runtime = AgentRuntime(self.event_bus)
         self.llm_runtime = LLMRuntime(self.event_bus)

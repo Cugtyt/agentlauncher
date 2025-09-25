@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .type import EventType
+from agentlauncher.eventbus import EventType
 
 
 @dataclass

@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from agentlauncher.eventbus import EventType
 from agentlauncher.llm_interface import (
     AssistantMessage,
     SystemMessage,
@@ -9,8 +10,6 @@ from agentlauncher.llm_interface import (
     ToolSchema,
     UserMessage,
 )
-
-from .type import EventType
 
 
 @dataclass

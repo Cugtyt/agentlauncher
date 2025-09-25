@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
+from agentlauncher.eventbus import EventType
 from agentlauncher.llm_interface import (
     Message,
     ToolSchema,
 )
-
-from .type import EventType
 
 
 @dataclass

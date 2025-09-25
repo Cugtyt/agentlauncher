@@ -2,13 +2,10 @@ import asyncio
 import logging
 
 from gpt import gpt_handler
-from helper import register_conversation_counter, register_tools
+from helper import register_tools
 from stream_logging_runtime import StreamLoggingRuntime
 
-from agentlauncher import (
-    AgentLauncher,
-    EventVerboseLevel,
-)
+from agentlauncher import AgentLauncher
 from agentlauncher.events import (
     MessagesAddEvent,
 )
@@ -32,9 +29,7 @@ Each step may require different tools or information sources. Provide a clear su
 
 
 async def main() -> None:
-    launcher = AgentLauncher(
-        verbose=EventVerboseLevel.SILENT,
-    )
+    launcher = AgentLauncher()
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
