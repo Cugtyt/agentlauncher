@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from gpt import gpt_handler
 from helper import register_conversation_counter, register_tools
+from mock_gpt import gpt_mock_handler
 
 from agentlauncher import AgentLauncher
 from agentlauncher.events import MessagesAddEvent
@@ -34,7 +34,7 @@ async def main() -> None:
 
     register_tools(launcher)
     # register_message_handlers(launcher)
-    launcher.set_primary_agent_llm_processor(gpt_handler)
+    launcher.set_primary_agent_llm_processor(gpt_mock_handler)
     # launcher.register_runtime(StreamLoggingRuntime)
     register_conversation_counter(launcher)
 
@@ -56,10 +56,8 @@ async def main() -> None:
                     f"result: {message.result}"
                 )
 
-    # tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
-    # await asyncio.gather(*tasks)
-
     async def handle_event(event):
+        return
         colors = [
             "\033[94m",  # Blue
             "\033[92m",  # Green
@@ -78,10 +76,14 @@ async def main() -> None:
             }"
         )
 
-    final_result = await launcher.run(test_task, event_callback=handle_event)
-
-    if final_result is not None:
-        print("Final Result:\n", final_result)
+    # final_result = await launcher.run(test_task, event_callback=handle_event)
+    # if final_result is not None:
+    #     print("Final Result:\n", final_result)
+    tasks = [
+        asyncio.create_task(launcher.run(test_task, event_callback=handle_event))
+        for _ in range(10000)
+    ]
+    await asyncio.gather(*tasks)
 
     # for result in results:
     #     print("Result:\n", result)
