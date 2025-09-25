@@ -12,8 +12,8 @@ from agentlauncher.llm_interface.message import (
     AssistantMessage,
     ResponseMessageList,
 )
+from agentlauncher.shared import is_primary_agent
 
-from .shared import is_primary_agent
 from .type import RuntimeType
 
 

@@ -26,8 +26,8 @@ Organize results for easy understanding, you don't need to report how you delega
 """
 
 
-def generate_primary_agent_id(index: int) -> str:
-    return f"{PRIMARY_AGENT_PREFIX}{index}"
+def generate_primary_agent_id() -> str:
+    return f"{PRIMARY_AGENT_PREFIX}_{uuid.uuid4().hex[:8]}"
 
 
 def generate_sub_agent_id(primary_agent_id: str) -> str:
@@ -35,10 +35,13 @@ def generate_sub_agent_id(primary_agent_id: str) -> str:
 
 
 def get_primary_agent_id(agent_id: str) -> str:
-    if is_primary_agent(agent_id):
-        return agent_id
-    return agent_id.split("_")[0]
+    if not agent_id.startswith(f"{PRIMARY_AGENT_PREFIX}_"):
+        raise ValueError("Not a primary agent ID")
+    parts = agent_id.split("_", 2)
+    if len(parts) >= 2:
+        return f"{parts[0]}_{parts[1]}"
+    return agent_id
 
 
 def is_primary_agent(agent_id: str) -> bool:
-    return agent_id.startswith(PRIMARY_AGENT_PREFIX) and "_" not in agent_id
+    return agent_id.startswith(f"{PRIMARY_AGENT_PREFIX}_") and agent_id.count("_") == 1

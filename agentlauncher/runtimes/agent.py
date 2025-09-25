@@ -31,12 +31,12 @@ from agentlauncher.llm_interface import (
     ToolSchema,
     UserMessage,
 )
-
-from .shared import (
+from agentlauncher.shared import (
     PRIMARY_AGENT_SYSTEM_PROMPT,
     get_primary_agent_id,
     is_primary_agent,
 )
+
 from .type import RuntimeType
 
 type ConversationProcessor = Callable[

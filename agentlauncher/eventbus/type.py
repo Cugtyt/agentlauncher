@@ -11,3 +11,4 @@ class EventType(ABC):
 
 T = TypeVar("T", bound=EventType)
 type EventHandler[T] = Callable[[T], Coroutine[Any, Any, None]]
+type EventHookCallback = Callable[[EventType], Coroutine[Any, Any, None]]

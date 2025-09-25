@@ -3,12 +3,9 @@ import logging
 
 from gpt import gpt_handler
 from helper import register_conversation_counter, register_tools
-from stream_logging_runtime import StreamLoggingRuntime
 
 from agentlauncher import AgentLauncher
-from agentlauncher.events import (
-    MessagesAddEvent,
-)
+from agentlauncher.events import MessagesAddEvent
 from agentlauncher.llm_interface import (
     AssistantMessage,
     ToolCallMessage,
@@ -32,16 +29,16 @@ async def main() -> None:
     launcher = AgentLauncher()
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.WARNING)
-    logging.getLogger("agentlauncher").setLevel(logging.INFO)
+    # logging.getLogger("agentlauncher").setLevel(logging.INFO)
     logging.getLogger(__name__).setLevel(logging.INFO)
 
     register_tools(launcher)
     # register_message_handlers(launcher)
     launcher.set_primary_agent_llm_processor(gpt_handler)
-    launcher.register_runtime(StreamLoggingRuntime)
+    # launcher.register_runtime(StreamLoggingRuntime)
     register_conversation_counter(launcher)
 
-    @launcher.subscribe_event(MessagesAddEvent)
+    # @launcher.subscribe_event(MessagesAddEvent)
     async def handle_messages_add_event(event: MessagesAddEvent):
         for message in event.messages:
             if isinstance(message, UserMessage):
@@ -59,8 +56,32 @@ async def main() -> None:
                     f"result: {message.result}"
                 )
 
-    tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
-    await asyncio.gather(*tasks)
+    # tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
+    # await asyncio.gather(*tasks)
+
+    async def handle_event(event):
+        colors = [
+            "\033[94m",  # Blue
+            "\033[92m",  # Green
+            "\033[93m",  # Yellow
+            "\033[95m",  # Magenta
+            "\033[96m",  # Cyan
+            "\033[91m",  # Red
+        ]
+        reset_color = "\033[0m"
+
+        agent_color = colors[hash(event.agent_id) % len(colors)]
+
+        logger.info(
+            f"{agent_color}[{event.agent_id}] Event: {type(event).__name__}{
+                reset_color
+            }"
+        )
+
+    final_result = await launcher.run(test_task, event_callback=handle_event)
+
+    if final_result is not None:
+        print("Final Result:\n", final_result)
 
     # for result in results:
     #     print("Result:\n", result)

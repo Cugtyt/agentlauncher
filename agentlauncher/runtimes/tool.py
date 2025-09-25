@@ -17,12 +17,12 @@ from agentlauncher.events import (
 )
 from agentlauncher.events.agent import AgentCreateEvent
 from agentlauncher.llm_interface import ToolParamSchema, ToolSchema
-
-from .shared import (
+from agentlauncher.shared import (
     CREATE_SUB_AGENT_TOOL_NAME,
     generate_sub_agent_id,
     get_primary_agent_id,
 )
+
 from .type import RuntimeType
 
 

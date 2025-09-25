@@ -1,4 +1,4 @@
 from .bus import EventBus
-from .type import EventHandler, EventType
+from .type import EventHandler, EventHookCallback, EventType
 
-__all__ = ["EventBus", "EventHandler", "EventType"]
+__all__ = ["EventBus", "EventHandler", "EventType", "EventHookCallback"]

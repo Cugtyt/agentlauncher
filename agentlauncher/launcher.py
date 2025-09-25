@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any
 
-from agentlauncher.eventbus import EventBus, EventHandler, EventType
+from agentlauncher.eventbus import EventBus, EventHandler, EventHookCallback, EventType
 from agentlauncher.events import (
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
@@ -12,13 +12,12 @@ from agentlauncher.events import (
 from agentlauncher.llm_interface import ToolParamSchema
 from agentlauncher.llm_interface.message import Message
 from agentlauncher.runtimes import (
-    PRIMARY_AGENT_SYSTEM_PROMPT,
     AgentRuntime,
     LLMRuntime,
     RuntimeType,
     ToolRuntime,
-    generate_primary_agent_id,
 )
+from agentlauncher.shared import PRIMARY_AGENT_SYSTEM_PROMPT, generate_primary_agent_id
 
 
 class AgentLauncher:
@@ -35,8 +34,7 @@ class AgentLauncher:
         self.runtimes: list[RuntimeType] = []
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self._final_results: dict[str, asyncio.Future[str]] = {}
-        self.primary_agents: set[str] = set()
-        self._agent_lock = asyncio.Lock()
+        self._result_lock = asyncio.Lock()
 
     def register_tool(
         self,
@@ -98,70 +96,72 @@ class AgentLauncher:
         return decorator
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
-        async with self._agent_lock:
-            if (
-                event.agent_id not in self.primary_agents
-                or event.agent_id not in self._final_results
-            ):
+        async with self._result_lock:
+            future = self._final_results.get(event.agent_id)
+            if future is None or future.done():
                 return
+            future.set_result(event.result or "")
 
-            self._final_results[event.agent_id].set_result(event.result or "")
-            self.primary_agents.discard(event.agent_id)
-            await self.event_bus.emit(
-                AgentLauncherStopEvent(
-                    agent_id=event.agent_id, result=event.result or ""
-                )
-            )
+        await self.event_bus.emit(
+            AgentLauncherStopEvent(agent_id=event.agent_id, result=event.result or "")
+        )
 
     async def run(
         self,
         task: str,
         history: list[Message] | None = None,
         timeout: float | None = 600.0,
+        event_callback: EventHookCallback | None = None,
     ) -> str | None:
-        async with self._agent_lock:
-            agent_id = generate_primary_agent_id(len(self.primary_agents))
-            self.primary_agents.add(agent_id)
-            self.tool_runtime.setup_sub_agent_tool()
-            self._final_results[agent_id] = asyncio.get_event_loop().create_future()
+        agent_id = generate_primary_agent_id()
+        future = asyncio.get_running_loop().create_future()
 
-        await self.event_bus.emit(
-            TaskCreateEvent(
-                agent_id=agent_id,
-                task=task,
-                conversation=history,
-                system_prompt=self.system_prompt,
-                tool_schemas=self.tool_runtime.get_tool_schemas(
-                    list(self.tool_runtime.tools.keys())
-                ),
+        async with self._result_lock:
+            self.tool_runtime.setup_sub_agent_tool()
+            self._final_results[agent_id] = future
+            tool_schemas = self.tool_runtime.get_tool_schemas(
+                list(self.tool_runtime.tools.keys())
             )
+
+        timeout_reason = (
+            f"Task timed out after {timeout} seconds"
+            if timeout is not None
+            else "Task timed out"
         )
-        future = self._final_results[agent_id]
+        result: str | None = None
+
         try:
+            if event_callback is not None:
+                await self.event_bus.add_hook(agent_id, event_callback)
+
+            await self.event_bus.emit(
+                TaskCreateEvent(
+                    agent_id=agent_id,
+                    task=task,
+                    conversation=history,
+                    system_prompt=self.system_prompt,
+                    tool_schemas=tool_schemas,
+                )
+            )
+
             if timeout is None:
                 result = await future
             else:
                 result = await asyncio.wait_for(future, timeout=timeout)
         except TimeoutError:
-            await self.cancel(
-                agent_id,
-                reason=(
-                    f"Task timed out after {timeout} seconds"
-                    if timeout is not None
-                    else "Task timed out"
-                ),
-            )
+            await self.cancel(agent_id, reason=timeout_reason)
             return None
         finally:
-            async with self._agent_lock:
+            async with self._result_lock:
                 self._final_results.pop(agent_id, None)
-                self.primary_agents.discard(agent_id)
+            await self.event_bus.remove_hook(agent_id)
+
         return result
 
     async def shutdown(self) -> None:
-        async with self._agent_lock:
-            primary_agents = list(self.primary_agents)
-        for agent_id in primary_agents:
+        async with self._result_lock:
+            active_agents = list(self._final_results.keys())
+        for agent_id in active_agents:
             await self.cancel(agent_id, reason="Launcher shutdown requested")
             await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=agent_id))
 
@@ -169,10 +169,9 @@ class AgentLauncher:
         self.runtimes.append(runtime_type(self.event_bus))
 
     async def cancel(self, agent_id: str, reason: str | None = None) -> None:
-        async with self._agent_lock:
+        async with self._result_lock:
             future = self._final_results.pop(agent_id, None)
-            was_primary = agent_id in self.primary_agents
-            self.primary_agents.discard(agent_id)
+        was_primary = future is not None
         if future and not future.done():
             future.cancel()
         cancel_reason = reason or "Task cancelled"
