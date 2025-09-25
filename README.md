@@ -31,56 +31,49 @@ Agent lifecycles are managed automatically, similar to jobs in Kubernetes—sub-
 
 ## Example Usage
 
-See `examples/main.py` for a usage example. Register tools and LLM handlers, then run tasks interactively:
+See `examples/main.py` for a usage example. The snippet below mirrors the explicit registration flow used in the repo:
 
 ```python
+import asyncio
+
 from agentlauncher import AgentLauncher
-from agentlauncher.events import (
-    EventBus,
-    MessageDeltaStreamingEvent,
-)
+from agentlauncher.events import MessageDeltaStreamingEvent
+from agentlauncher.llm_interface import ToolParamSchema
+from my_handlers import my_llm_handler
 
-launcher = AgentLauncher()
 
-@launcher.tool(
-    name="calculate",
-    description="Calculate the result of the expression a * b + c.",
-    parameters={
-        "a": {
-            "type": "integer",
-            "description": "The first integer.",
-            "required": True,
+async def main() -> None:
+    launcher = AgentLauncher()
+
+    def calculate_tool(a: int, b: int, c: int) -> str:
+        return str(a * b + c)
+
+    launcher.register_tool(
+        name="calculate",
+        function=calculate_tool,
+        description="Calculate the result of a * b + c.",
+        parameters={
+            "a": ToolParamSchema(type="integer", description="Multiplicand", required=True),
+            "b": ToolParamSchema(type="integer", description="Multiplier", required=True),
+            "c": ToolParamSchema(type="integer", description="Addend", required=True),
         },
-        "b": {
-            "type": "integer",
-            "description": "The second integer.",
-            "required": True,
-        },
-        "c": {
-            "type": "integer",
-            "description": "The third integer.",
-            "required": True,
-        },
-    },
-)
-def calculate_tool(a: int, b: int, c: int) -> str:
-    return str(a * b + c)
+    )
 
-launcher.register_main_agent_llm_handler(your_llm_function)
-launcher.register_sub_agent_llm_handler(your_llm_function) # optional
+    launcher.set_primary_agent_llm_processor(my_llm_handler)
+    # Optionally set a distinct processor for spawned sub-agents
+    # launcher.set_sub_agent_llm_processor(my_sub_agent_handler)
 
-# you can subscribe any events you want
-@launcher.subscribe_event(MessageDeltaStreamingEvent)
-async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
-    print(f"{event.delta}", end="", flush=True)
+    @launcher.subscribe_event(MessageDeltaStreamingEvent)
+    async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
+        print(event.delta, end="", flush=True)
 
-# for complex scenarios, you can define your own runtime to handle multiple events
-launcher.register_runtime(StreamLoggingRuntime)
+    # Register any extra runtimes that should react to events
+    # launcher.register_runtime(MyCustomRuntime)
 
-while True:
-    task = input("Enter your task (or 'exit' to quit): ")
-    if task.lower() == "exit":
-        break
-    result = await launcher.run(task)
-    print(f"Final Result: {result}")
+    result = await launcher.run("Book a trip to Tokyo in April")
+    print("Final Result:\n", result)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```

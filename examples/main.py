@@ -60,7 +60,7 @@ async def main() -> None:
                 )
 
     tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
-    results = await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks)
 
     # for result in results:
     #     print("Result:\n", result)

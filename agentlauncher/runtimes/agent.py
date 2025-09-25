@@ -1,4 +1,4 @@
-from asyncio import iscoroutinefunction
+from asyncio import Lock, iscoroutinefunction
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
@@ -177,6 +177,7 @@ class AgentRuntime(RuntimeType):
         )
         self.agents: dict[str, Agent] = {}
         self.conversation_processor: ConversationProcessor | None = None
+        self._agents_lock = Lock()
 
     def set_conversation_processor(self, processor: ConversationProcessor) -> None:
         self.conversation_processor = processor
@@ -193,27 +194,38 @@ class AgentRuntime(RuntimeType):
         )
 
     async def handle_agent_create(self, event: AgentCreateEvent) -> None:
-        if event.agent_id in self.agents:
-            await self.event_bus.emit(
-                AgentRuntimeErrorEvent(
+        async with self._agents_lock:
+            if event.agent_id in self.agents:
+                error_event = AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
                     error="Agent with this ID already exists.",
                 )
-            )
+                agent = None
+            else:
+                agent = Agent(
+                    agent_id=event.agent_id,
+                    task=event.task,
+                    conversation=event.conversation or [],
+                    system_prompt=event.system_prompt,
+                    event_bus=self.event_bus,
+                    tool_schemas=event.tool_schemas,
+                    conversation_processor=self.conversation_processor,
+                )
+                self.agents[event.agent_id] = agent
+                error_event = None
+
+        if error_event is not None:
+            await self.event_bus.emit(error_event)
             return
-        self.agents[event.agent_id] = Agent(
-            agent_id=event.agent_id,
-            task=event.task,
-            conversation=event.conversation or [],
-            system_prompt=event.system_prompt,
-            event_bus=self.event_bus,
-            tool_schemas=event.tool_schemas,
-            conversation_processor=self.conversation_processor,
-        )
-        await self.agents[event.agent_id].start()
+
+        if agent is None:
+            return
+
+        await agent.start()
 
     async def handle_llm_response(self, event: LLMResponseEvent) -> None:
-        agent = self.agents.get(event.agent_id)
+        async with self._agents_lock:
+            agent = self.agents.get(event.agent_id)
         if not agent:
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
@@ -226,7 +238,8 @@ class AgentRuntime(RuntimeType):
         await agent.handle_llm_response(event.response)
 
     async def handle_tools_exec_results(self, event: ToolsExecResultsEvent) -> None:
-        agent = self.agents.get(event.agent_id)
+        async with self._agents_lock:
+            agent = self.agents.get(event.agent_id)
         if not agent:
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
@@ -238,39 +251,57 @@ class AgentRuntime(RuntimeType):
         await agent.handle_tools_exec_results(event.tool_results)
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
-        if event.agent_id in self.agents:
-            if not is_primary_agent(event.agent_id):
-                del self.agents[event.agent_id]
-                await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+        events_to_emit: list[
+            AgentDeletedEvent | TaskFinishEvent | AgentRuntimeErrorEvent
+        ] = []
+        async with self._agents_lock:
+            if event.agent_id in self.agents:
+                if not is_primary_agent(event.agent_id):
+                    del self.agents[event.agent_id]
+                    events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
+                else:
+                    events_to_emit.append(
+                        TaskFinishEvent(agent_id=event.agent_id, result=event.result)
+                    )
             else:
-                await self.event_bus.emit(
-                    TaskFinishEvent(agent_id=event.agent_id, result=event.result)
+                events_to_emit.append(
+                    AgentRuntimeErrorEvent(
+                        agent_id=event.agent_id,
+                        error="Agent not found on finish.",
+                    )
                 )
-        else:
-            await self.event_bus.emit(
-                AgentRuntimeErrorEvent(
-                    agent_id=event.agent_id,
-                    error="Agent not found on finish.",
-                )
-            )
+
+        for emit_event in events_to_emit:
+            await self.event_bus.emit(emit_event)
 
     async def handle_agent_runtime_error(self, event: AgentRuntimeErrorEvent) -> None:
-        if event.agent_id and event.agent_id in self.agents:
-            del self.agents[event.agent_id]
-            await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
-        await self.event_bus.emit(
+        events_to_emit: list[AgentDeletedEvent | TaskFinishEvent]
+        events_to_emit = []
+        async with self._agents_lock:
+            if event.agent_id and event.agent_id in self.agents:
+                del self.agents[event.agent_id]
+                events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
+        events_to_emit.append(
             TaskFinishEvent(
                 agent_id=event.agent_id or "unknown",
                 result=f"Agent encountered an error: {event.error}",
             )
         )
+        for emit_event in events_to_emit:
+            await self.event_bus.emit(emit_event)
 
     async def handle_launcher_shutdown(self, event: AgentLauncherShutdownEvent) -> None:
-        for agent_id in list(self.agents.keys()):
-            del self.agents[agent_id]
+        async with self._agents_lock:
+            agent_ids = list(self.agents.keys())
+            self.agents.clear()
+        for agent_id in agent_ids:
             await self.event_bus.emit(AgentDeletedEvent(agent_id=agent_id))
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
-        if is_primary_agent(event.agent_id) and event.agent_id in self.agents:
-            del self.agents[event.agent_id]
+        should_emit_deleted = False
+        async with self._agents_lock:
+            if is_primary_agent(event.agent_id) and event.agent_id in self.agents:
+                del self.agents[event.agent_id]
+                should_emit_deleted = True
+        if should_emit_deleted:
             await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))

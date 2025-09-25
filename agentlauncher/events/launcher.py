@@ -16,8 +16,3 @@ class AgentLauncherStopEvent(EventType):
 @dataclass
 class AgentLauncherShutdownEvent(EventType):
     pass
-
-
-@dataclass
-class AgentLauncherErrorEvent(EventType):
-    error: str

@@ -27,11 +27,6 @@ class MessageDoneStreamingEvent(EventType):
 
 
 @dataclass
-class MessageErrorStreamingEvent(EventType):
-    error: str
-
-
-@dataclass
 class ToolCallNameStreamingEvent(EventType):
     tool_call_id: str
     tool_name: str
@@ -52,9 +47,3 @@ class ToolCallArgumentsDeltaStreamingEvent(EventType):
 class ToolCallArgumentsDoneStreamingEvent(EventType):
     tool_call_id: str
     arguments: str
-
-
-@dataclass
-class ToolCallArgumentsErrorStreamingEvent(EventType):
-    tool_call_id: str
-    error: str
