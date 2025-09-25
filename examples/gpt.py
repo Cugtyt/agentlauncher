@@ -18,8 +18,8 @@ from openai.types.responses import (
 )
 from openai.types.responses.response_input_param import FunctionCallOutput
 
+from agentlauncher.eventbus import EventBus
 from agentlauncher.events import (
-    EventBus,
     MessageDeltaStreamingEvent,
     MessageDoneStreamingEvent,
     MessageStartStreamingEvent,
