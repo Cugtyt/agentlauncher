@@ -14,6 +14,7 @@ from agentlauncher.events import (
     LLMRequestEvent,
     LLMResponseEvent,
     MessagesAddEvent,
+    TaskCancelEvent,
     TaskCreateEvent,
     TaskFinishEvent,
     ToolCall,
@@ -31,7 +32,11 @@ from agentlauncher.llm_interface import (
     UserMessage,
 )
 
-from .shared import PRIMARY_AGENT_SYSTEM_PROMPT, is_primary_agent
+from .shared import (
+    PRIMARY_AGENT_SYSTEM_PROMPT,
+    get_primary_agent_id,
+    is_primary_agent,
+)
 from .type import RuntimeType
 
 type ConversationProcessor = Callable[
@@ -169,6 +174,7 @@ class AgentRuntime(RuntimeType):
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(TaskCreateEvent, self.handle_task_create)
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
+        self.event_bus.subscribe(TaskCancelEvent, self.handle_task_cancel)
         self.event_bus.subscribe(
             AgentRuntimeErrorEvent, self.handle_agent_runtime_error
         )
@@ -178,6 +184,7 @@ class AgentRuntime(RuntimeType):
         self.agents: dict[str, Agent] = {}
         self.conversation_processor: ConversationProcessor | None = None
         self._agents_lock = Lock()
+        self._cancelled_agents: set[str] = set()
 
     def set_conversation_processor(self, processor: ConversationProcessor) -> None:
         self.conversation_processor = processor
@@ -227,6 +234,9 @@ class AgentRuntime(RuntimeType):
         async with self._agents_lock:
             agent = self.agents.get(event.agent_id)
         if not agent:
+            if event.agent_id in self._cancelled_agents:
+                self._cancelled_agents.discard(event.agent_id)
+                return
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
@@ -241,6 +251,9 @@ class AgentRuntime(RuntimeType):
         async with self._agents_lock:
             agent = self.agents.get(event.agent_id)
         if not agent:
+            if event.agent_id in self._cancelled_agents:
+                self._cancelled_agents.discard(event.agent_id)
+                return
             await self.event_bus.emit(
                 AgentRuntimeErrorEvent(
                     agent_id=event.agent_id,
@@ -305,3 +318,15 @@ class AgentRuntime(RuntimeType):
                 should_emit_deleted = True
         if should_emit_deleted:
             await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
+
+    async def handle_task_cancel(self, event: TaskCancelEvent) -> None:
+        to_delete: list[str] = []
+        async with self._agents_lock:
+            for agent_id in list(self.agents.keys()):
+                if get_primary_agent_id(agent_id) == event.agent_id:
+                    del self.agents[agent_id]
+                    to_delete.append(agent_id)
+            self._cancelled_agents.update(to_delete)
+            self._cancelled_agents.add(event.agent_id)
+        for agent_id in to_delete:
+            await self.event_bus.emit(AgentDeletedEvent(agent_id=agent_id))

@@ -5,6 +5,7 @@ from agentlauncher.eventbus import EventBus, EventHandler, EventType
 from agentlauncher.events import (
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
+    TaskCancelEvent,
     TaskCreateEvent,
     TaskFinishEvent,
 )
@@ -105,13 +106,19 @@ class AgentLauncher:
                 return
 
             self._final_results[event.agent_id].set_result(event.result or "")
+            self.primary_agents.discard(event.agent_id)
             await self.event_bus.emit(
                 AgentLauncherStopEvent(
                     agent_id=event.agent_id, result=event.result or ""
                 )
             )
 
-    async def run(self, task: str, history: list[Message] | None = None) -> str:
+    async def run(
+        self,
+        task: str,
+        history: list[Message] | None = None,
+        timeout: float | None = 600.0,
+    ) -> str | None:
         async with self._agent_lock:
             agent_id = generate_primary_agent_id(len(self.primary_agents))
             self.primary_agents.add(agent_id)
@@ -129,17 +136,50 @@ class AgentLauncher:
                 ),
             )
         )
-        result = await self._final_results[agent_id]
-        async with self._agent_lock:
-            del self._final_results[agent_id]
+        future = self._final_results[agent_id]
+        try:
+            if timeout is None:
+                result = await future
+            else:
+                result = await asyncio.wait_for(future, timeout=timeout)
+        except TimeoutError:
+            await self.cancel(
+                agent_id,
+                reason=(
+                    f"Task timed out after {timeout} seconds"
+                    if timeout is not None
+                    else "Task timed out"
+                ),
+            )
+            return None
+        finally:
+            async with self._agent_lock:
+                self._final_results.pop(agent_id, None)
+                self.primary_agents.discard(agent_id)
         return result
 
     async def shutdown(self) -> None:
         async with self._agent_lock:
             primary_agents = list(self.primary_agents)
-            self.primary_agents.clear()
         for agent_id in primary_agents:
+            await self.cancel(agent_id, reason="Launcher shutdown requested")
             await self.event_bus.emit(AgentLauncherShutdownEvent(agent_id=agent_id))
 
     def register_runtime(self, runtime_type: type[RuntimeType]) -> None:
         self.runtimes.append(runtime_type(self.event_bus))
+
+    async def cancel(self, agent_id: str, reason: str | None = None) -> None:
+        async with self._agent_lock:
+            future = self._final_results.pop(agent_id, None)
+            was_primary = agent_id in self.primary_agents
+            self.primary_agents.discard(agent_id)
+        if future and not future.done():
+            future.cancel()
+        cancel_reason = reason or "Task cancelled"
+        await self.event_bus.emit(
+            TaskCancelEvent(agent_id=agent_id, reason=cancel_reason)
+        )
+        if was_primary:
+            await self.event_bus.emit(
+                AgentLauncherStopEvent(agent_id=agent_id, result=cancel_reason)
+            )

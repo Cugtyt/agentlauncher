@@ -6,6 +6,7 @@ from typing import Any, cast
 from agentlauncher.eventbus import EventBus
 from agentlauncher.events import (
     AgentFinishEvent,
+    TaskCancelEvent,
     ToolExecErrorEvent,
     ToolExecFinishEvent,
     ToolExecStartEvent,
@@ -17,7 +18,11 @@ from agentlauncher.events import (
 from agentlauncher.events.agent import AgentCreateEvent
 from agentlauncher.llm_interface import ToolParamSchema, ToolSchema
 
-from .shared import CREATE_SUB_AGENT_TOOL_NAME, generate_sub_agent_id
+from .shared import (
+    CREATE_SUB_AGENT_TOOL_NAME,
+    generate_sub_agent_id,
+    get_primary_agent_id,
+)
 from .type import RuntimeType
 
 
@@ -38,6 +43,7 @@ class ToolRuntime(RuntimeType):
         self.event_bus.subscribe(ToolsExecRequestEvent, self.handle_tools_exec_request)
         self.event_bus.subscribe(AgentFinishEvent, self.handle_agent_finish)
         self.event_bus.subscribe(ToolRuntimeErrorEvent, self.handle_tool_runtime_error)
+        self.event_bus.subscribe(TaskCancelEvent, self.handle_task_cancel)
         self.sub_agent_futures: dict[str, asyncio.Future[str]] = {}
 
     def setup_sub_agent_tool(self) -> None:
@@ -206,3 +212,14 @@ class ToolRuntime(RuntimeType):
                 tool_results=[],
             )
         )
+
+    async def handle_task_cancel(self, event: TaskCancelEvent) -> None:
+        to_cancel: list[str] = []
+        for agent_id in list(self.sub_agent_futures.keys()):
+            if get_primary_agent_id(agent_id) == event.agent_id:
+                to_cancel.append(agent_id)
+
+        for agent_id in to_cancel:
+            future = self.sub_agent_futures.pop(agent_id)
+            if not future.done():
+                future.cancel()

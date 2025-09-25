@@ -18,3 +18,8 @@ class TaskCreateEvent(EventType):
 @dataclass
 class TaskFinishEvent(EventType):
     result: str
+
+
+@dataclass
+class TaskCancelEvent(EventType):
+    reason: str | None = None

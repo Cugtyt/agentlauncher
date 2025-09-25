@@ -22,7 +22,7 @@ from .message import (
     ToolCallArgumentsStartStreamingEvent,
     ToolCallNameStreamingEvent,
 )
-from .task import TaskCreateEvent, TaskFinishEvent
+from .task import TaskCancelEvent, TaskCreateEvent, TaskFinishEvent
 from .tool import (
     ToolCall,
     ToolExecErrorEvent,
@@ -55,6 +55,7 @@ __all__ = [
     "AgentRuntimeErrorEvent",
     "TaskCreateEvent",
     "TaskFinishEvent",
+    "TaskCancelEvent",
     "MessagesAddEvent",
     "MessageDeltaStreamingEvent",
     "ToolCallArgumentsStartStreamingEvent",
