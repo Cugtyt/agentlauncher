@@ -57,7 +57,6 @@ async def main() -> None:
                 )
 
     async def handle_event(event):
-        return
         colors = [
             "\033[94m",  # Blue
             "\033[92m",  # Green
@@ -81,7 +80,7 @@ async def main() -> None:
     #     print("Final Result:\n", final_result)
     tasks = [
         asyncio.create_task(launcher.run(test_task, event_callback=handle_event))
-        for _ in range(10000)
+        for _ in range(3)
     ]
     await asyncio.gather(*tasks)
 
