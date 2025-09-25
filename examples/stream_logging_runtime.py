@@ -1,5 +1,5 @@
+from agentlauncher.eventbus import EventBus
 from agentlauncher.events import (
-    EventBus,
     MessageDeltaStreamingEvent,
     MessageDoneStreamingEvent,
     MessageStartStreamingEvent,

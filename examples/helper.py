@@ -4,6 +4,7 @@ import logging
 from agentlauncher import (
     AgentLauncher,
 )
+from agentlauncher.eventbus.bus import EventBus
 from agentlauncher.llm_interface import (
     AssistantMessage,
     Message,
@@ -241,17 +242,7 @@ def register_tools(launcher: AgentLauncher) -> None:
 
 
 def register_message_handlers(launcher: AgentLauncher) -> None:
-    @launcher.message_handler()
-    async def count_words_handler(
-        messages: list[Message],
-    ) -> list[Message]:
-        for message in messages:
-            if isinstance(message, AssistantMessage):
-                word_count = len(message.content.split())
-                print(f"{'>' * 20} (Word count: {word_count})")
-        return messages
-
-    @launcher.conversation_handler()
+    @launcher.conversation_processor()
     async def trim_conversation_handler(
         conversation: list[Message],
     ) -> list[Message]:
@@ -265,9 +256,9 @@ def register_message_handlers(launcher: AgentLauncher) -> None:
 
 
 def register_conversation_counter(launcher: AgentLauncher) -> None:
-    @launcher.conversation_handler()
+    @launcher.conversation_processor()
     async def conversation_counter(
-        conversation: list[Message], agent_id: str
+        conversation: list[Message], agent_id: str, event_bus: EventBus
     ) -> list[Message]:
         logger = logging.getLogger(__name__)
         logger.info(f"[{agent_id}] Conversation length: {len(conversation)} messages.")

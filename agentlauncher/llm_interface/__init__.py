@@ -1,4 +1,3 @@
-from .handler import LLMHandler
 from .message import (
     AssistantMessage,
     Message,
@@ -10,6 +9,7 @@ from .message import (
     ToolResultMessage,
     UserMessage,
 )
+from .processor import LLMProcessor
 from .tool import ToolParamSchema, ToolSchema
 
 __all__ = [
@@ -19,7 +19,7 @@ __all__ = [
     "ToolCallMessage",
     "ToolResultMessage",
     "AssistantMessage",
-    "LLMHandler",
+    "LLMProcessor",
     "ToolSchema",
     "ToolParamSchema",
     "ResponseMessageList",

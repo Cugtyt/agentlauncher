@@ -31,3 +31,9 @@ class AgentRuntimeErrorEvent(EventType):
 
 @dataclass
 class AgentDeletedEvent(EventType): ...
+
+
+@dataclass
+class AgentConversationProcessedEvent(EventType):
+    original_messages: list[Message]
+    processed_messages: list[Message]

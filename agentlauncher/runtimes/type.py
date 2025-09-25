@@ -1,6 +1,6 @@
 from typing import Any
 
-from agentlauncher.events import EventBus, EventHandler, EventType
+from agentlauncher.eventbus import EventBus, EventHandler, EventType
 
 
 class RuntimeType:

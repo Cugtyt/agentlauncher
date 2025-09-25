@@ -1,4 +1,5 @@
 from .agent import (
+    AgentConversationProcessedEvent,
     AgentCreateEvent,
     AgentDeletedEvent,
     AgentFinishEvent,
@@ -43,6 +44,7 @@ __all__ = [
     "AgentCreateEvent",
     "AgentStartEvent",
     "AgentFinishEvent",
+    "AgentConversationProcessedEvent",
     "AgentRuntimeErrorEvent",
     "ToolsExecRequestEvent",
     "ToolsExecResultsEvent",

@@ -8,7 +8,7 @@ from .message import (
     ResponseMessageList,
 )
 
-type LLMHandler = Callable[
+type LLMProcessor = Callable[
     [
         RequestMessageList,
         RequestToolList,

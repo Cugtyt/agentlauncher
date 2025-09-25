@@ -14,7 +14,6 @@ from agentlauncher.runtimes import (
     PRIMARY_AGENT_SYSTEM_PROMPT,
     AgentRuntime,
     LLMRuntime,
-    MessageRuntime,
     RuntimeType,
     ToolRuntime,
     generate_primary_agent_id,
@@ -32,7 +31,6 @@ class AgentLauncher:
         self.agent_runtime = AgentRuntime(self.event_bus)
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus, sub_agent_tool=sub_agent_tool)
-        self.message_runtime = MessageRuntime(self.event_bus)
         self.runtimes: list[RuntimeType] = []
         self.event_bus.subscribe(TaskFinishEvent, self.handle_task_finish)
         self._final_results: dict[str, asyncio.Future[str]] = {}
@@ -61,22 +59,22 @@ class AgentLauncher:
 
         return decorator
 
-    def register_primary_agent_llm_handler(self, function):
-        self.llm_runtime.set_primary_agent_handler(function)
+    def set_primary_agent_llm_processor(self, function):
+        self.llm_runtime.set_primary_agent_llm_processor(function)
 
-    def primary_agent_llm_handler(self):
+    def primary_agent_llm_processor(self):
         def decorator(func):
-            self.register_primary_agent_llm_handler(func)
+            self.set_primary_agent_llm_processor(func)
             return func
 
         return decorator
 
-    def register_sub_agent_llm_handler(self, function):
-        self.llm_runtime.set_sub_agent_handler(function)
+    def set_sub_agent_llm_processor(self, function):
+        self.llm_runtime.set_sub_agent_llm_processor(function)
 
-    def sub_agent_llm_handler(self):
+    def sub_agent_llm_processor(self):
         def decorator(func):
-            self.register_sub_agent_llm_handler(func)
+            self.set_sub_agent_llm_processor(func)
             return func
 
         return decorator
@@ -88,22 +86,12 @@ class AgentLauncher:
 
         return decorator
 
-    def register_message_handler(self, function):
-        self.message_runtime.register_message_handler(function)
+    def set_conversation_processor(self, function):
+        self.agent_runtime.set_conversation_processor(function)
 
-    def message_handler(self):
+    def conversation_processor(self):
         def decorator(func):
-            self.register_message_handler(func)
-            return func
-
-        return decorator
-
-    def register_conversation_handler(self, function):
-        self.message_runtime.register_conversation_handler(function)
-
-    def conversation_handler(self):
-        def decorator(func):
-            self.register_conversation_handler(func)
+            self.set_conversation_processor(func)
             return func
 
         return decorator

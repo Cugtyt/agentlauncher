@@ -3,9 +3,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from agentlauncher.eventbus import EventBus
 from agentlauncher.events import (
     AgentFinishEvent,
-    EventBus,
     ToolExecErrorEvent,
     ToolExecFinishEvent,
     ToolExecStartEvent,

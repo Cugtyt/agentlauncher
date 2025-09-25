@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from gpt import gpt_handler
-from helper import register_tools
+from helper import register_conversation_counter, register_tools
 from stream_logging_runtime import StreamLoggingRuntime
 
 from agentlauncher import AgentLauncher
@@ -31,14 +31,15 @@ Each step may require different tools or information sources. Provide a clear su
 async def main() -> None:
     launcher = AgentLauncher()
     logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.INFO)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("azure").setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.WARNING)
+    logging.getLogger("agentlauncher").setLevel(logging.INFO)
+    logging.getLogger(__name__).setLevel(logging.INFO)
 
     register_tools(launcher)
     # register_message_handlers(launcher)
-    launcher.register_primary_agent_llm_handler(gpt_handler)
+    launcher.set_primary_agent_llm_processor(gpt_handler)
     launcher.register_runtime(StreamLoggingRuntime)
+    register_conversation_counter(launcher)
 
     @launcher.subscribe_event(MessagesAddEvent)
     async def handle_messages_add_event(event: MessagesAddEvent):
@@ -61,8 +62,8 @@ async def main() -> None:
     tasks = [asyncio.create_task(launcher.run(test_task)) for _ in range(3)]
     results = await asyncio.gather(*tasks)
 
-    for result in results:
-        print("Result:\n", result)
+    # for result in results:
+    #     print("Result:\n", result)
 
     # for message in launcher.message_runtime.history:
     #     print(message)
