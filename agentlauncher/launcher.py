@@ -42,16 +42,27 @@ class AgentLauncher:
         function,
         description: str,
         parameters: dict[str, ToolParamSchema],
+        context_key: str | None = None,
     ):
-        self.tool_runtime.register(name, function, description, parameters)
+        self.tool_runtime.register(
+            name, function, description, parameters, context_key=context_key
+        )
 
-    def tool(self, name: str, description: str, parameters: dict[str, dict]):
+    def tool(
+        self,
+        name: str,
+        description: str,
+        parameters: dict[str, dict],
+        *,
+        context_key: str | None = None,
+    ):
         def decorator(func):
             self.register_tool(
                 name,
                 func,
                 description,
                 {p: ToolParamSchema(**s) for p, s in parameters.items()},
+                context_key=context_key,
             )
 
             return func

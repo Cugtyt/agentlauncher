@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable
 
-from agentlauncher.eventbus import EventBus
+from agentlauncher.eventbus import EventContext
 
 from .message import (
     RequestMessageList,
@@ -12,8 +12,7 @@ type LLMProcessor = Callable[
     [
         RequestMessageList,
         RequestToolList,
-        str,  # agent_id
-        EventBus,
+        EventContext,
     ],
     Awaitable[ResponseMessageList] | ResponseMessageList,
 ]

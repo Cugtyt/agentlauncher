@@ -3,7 +3,7 @@ from asyncio import Lock
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
-from agentlauncher.eventbus import EventBus
+from agentlauncher.eventbus import EventBus, EventContext
 from agentlauncher.events import (
     AgentCreateEvent,
     AgentDeletedEvent,
@@ -42,8 +42,7 @@ from .type import RuntimeType
 type ConversationProcessor = Callable[
     [
         list[Message],
-        str,  # agent_id
-        EventBus,
+        EventContext,
     ],
     Awaitable[list[Message]] | list[Message],
 ]
@@ -78,15 +77,16 @@ class Agent:
     async def _process_conversation(self):
         if not self.conversation_processor:
             return
+        context = EventContext(agent_id=self.agent_id, event_bus=self.event_bus)
         if asyncio.iscoroutinefunction(self.conversation_processor):
             self._message_cache = await self.conversation_processor(
-                list(self._message_cache), self.agent_id, self.event_bus
+                list(self._message_cache), context
             )
         else:
             self._message_cache = cast(
                 list[Message],
                 self.conversation_processor(
-                    list(self._message_cache), self.agent_id, self.event_bus
+                    list(self._message_cache), context
                 ),
             )
 

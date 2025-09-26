@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from agentlauncher.eventbus import EventBus
+from agentlauncher.eventbus import EventBus, EventContext
 from agentlauncher.events import (
     AgentFinishEvent,
     TaskCancelEvent,
@@ -29,6 +29,7 @@ from .type import RuntimeType
 @dataclass
 class Tool(ToolSchema):
     function: Callable[..., str | Awaitable[str]]
+    context_key: str | None = None
 
 
 class ToolRuntime(RuntimeType):
@@ -68,6 +69,7 @@ class ToolRuntime(RuntimeType):
                     required=True,
                 ),
             },
+            context_key="context",
         )
 
     async def handle_agent_finish(self, event: AgentFinishEvent) -> None:
@@ -78,9 +80,9 @@ class ToolRuntime(RuntimeType):
             future.set_result(event.result or "")
 
     async def _create_sub_agent_tool(
-        self, task: str, tool_name_list: list[str], primary_agent_id: str
+        self, task: str, tool_name_list: list[str], context: EventContext
     ) -> str:
-        agent_id = generate_sub_agent_id(primary_agent_id)
+        agent_id = generate_sub_agent_id(context.agent_id)
         future = asyncio.get_event_loop().create_future()
         self.sub_agent_futures[agent_id] = future
 
@@ -104,11 +106,16 @@ class ToolRuntime(RuntimeType):
         function: Callable[..., str | Awaitable[str]],
         description: str,
         parameters: dict[str, ToolParamSchema],
+        context_key: str | None = None,
     ):
         if name in self.tools:
             raise ValueError(f"Tool '{name}' is already registered.")
         tool = Tool(
-            name=name, function=function, description=description, parameters=parameters
+            name=name,
+            function=function,
+            description=description,
+            parameters=parameters,
+            context_key=context_key,
         )
         self.tools[name] = tool
 
@@ -118,6 +125,7 @@ class ToolRuntime(RuntimeType):
         arguments: dict[str, Any],
         agent_id: str,
         tool_call_id: str,
+        context: EventContext,
     ) -> str:
         await self.event_bus.emit(
             ToolExecStartEvent(
@@ -129,6 +137,8 @@ class ToolRuntime(RuntimeType):
         )
         try:
             tool = self.tools[tool_name]
+            if tool.context_key:
+                arguments[tool.context_key] = context
             if asyncio.iscoroutinefunction(tool.function):
                 result = await tool.function(**arguments)
             else:
@@ -170,14 +180,10 @@ class ToolRuntime(RuntimeType):
         tasks = [
             self.tool_exec(
                 tool_name=tool_call.tool_name,
-                arguments=tool_call.arguments
-                if tool_call.tool_name != CREATE_SUB_AGENT_TOOL_NAME
-                else {
-                    **tool_call.arguments,
-                    "primary_agent_id": event.agent_id,
-                },
+                arguments=tool_call.arguments,
                 agent_id=event.agent_id,
                 tool_call_id=tool_call.tool_call_id,
+                context=EventContext(agent_id=event.agent_id, event_bus=self.event_bus),
             )
             for tool_call in event.tool_calls
         ]

@@ -4,7 +4,7 @@ import logging
 from agentlauncher import (
     AgentLauncher,
 )
-from agentlauncher.eventbus.bus import EventBus
+from agentlauncher.eventbus.context import EventContext
 from agentlauncher.llm_interface import (
     AssistantMessage,
     Message,
@@ -33,7 +33,7 @@ def register_tools(launcher: AgentLauncher) -> None:
             },
         },
     )
-    def calculate_tool(a: int, b: int, c: int) -> str:
+    def calculate_tool(a: int, b: int, c: int, ctx: EventContext) -> str:
         return str(a * b + c)
 
     @launcher.tool(
@@ -189,8 +189,10 @@ def register_tools(launcher: AgentLauncher) -> None:
         name="list_platforms",
         description="List three online platforms suitable for hosting a conference.",
         parameters={},
+        context_key="ctx",
     )
-    def list_platforms_tool() -> str:
+    def list_platforms_tool(ctx: EventContext) -> str:
+        logging.getLogger(__name__).warning(f"[{ctx.agent_id}] Listing platforms")
         return "Online platforms: Zoom, Microsoft Teams, Hopin."
 
     @launcher.tool(
@@ -258,8 +260,10 @@ def register_message_handlers(launcher: AgentLauncher) -> None:
 def register_conversation_counter(launcher: AgentLauncher) -> None:
     @launcher.conversation_processor()
     async def conversation_counter(
-        conversation: list[Message], agent_id: str, event_bus: EventBus
+        conversation: list[Message], context: EventContext
     ) -> list[Message]:
         logger = logging.getLogger(__name__)
-        logger.info(f"[{agent_id}] Conversation length: {len(conversation)} messages.")
+        logger.info(
+            f"[{context.agent_id}] Conversation length: {len(conversation)} messages."
+        )
         return conversation
