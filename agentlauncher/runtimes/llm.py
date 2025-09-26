@@ -1,7 +1,7 @@
 import asyncio
 from typing import cast
 
-from agentlauncher.eventbus import EventBus
+from agentlauncher.eventbus import EventBus, EventContext
 from agentlauncher.events import (
     LLMRequestEvent,
     LLMResponseEvent,
@@ -50,17 +50,15 @@ class LLMRuntime(RuntimeType):
             )
             return
         try:
+            context = EventContext(agent_id=event.agent_id, event_bus=self.event_bus)
             if asyncio.iscoroutinefunction(handler):
-                response = await handler(
-                    event.messages, event.tool_schemas, event.agent_id, self.event_bus
-                )
+                response = await handler(event.messages, event.tool_schemas, context)
             else:
                 response = await asyncio.to_thread(
                     handler,
                     event.messages,
                     event.tool_schemas,
-                    event.agent_id,
-                    self.event_bus,
+                    context,
                 )
             await self.event_bus.emit(
                 LLMResponseEvent(

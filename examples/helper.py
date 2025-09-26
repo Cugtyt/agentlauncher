@@ -34,6 +34,9 @@ def register_tools(launcher: AgentLauncher) -> None:
         },
     )
     def calculate_tool(a: int, b: int, c: int, ctx: EventContext) -> str:
+        logging.getLogger(__name__).warning(
+            f"[{ctx.agent_id}] Calculating {a} * {b} + {c}"
+        )
         return str(a * b + c)
 
     @launcher.tool(
@@ -189,7 +192,6 @@ def register_tools(launcher: AgentLauncher) -> None:
         name="list_platforms",
         description="List three online platforms suitable for hosting a conference.",
         parameters={},
-        context_key="ctx",
     )
     def list_platforms_tool(ctx: EventContext) -> str:
         logging.getLogger(__name__).warning(f"[{ctx.agent_id}] Listing platforms")

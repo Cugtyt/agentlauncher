@@ -1,7 +1,14 @@
 import asyncio
+import inspect
 from typing import Any
 
-from agentlauncher.eventbus import EventBus, EventHandler, EventHookCallback, EventType
+from agentlauncher.eventbus import (
+    EventBus,
+    EventContext,
+    EventHandler,
+    EventHookCallback,
+    EventType,
+)
 from agentlauncher.events import (
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
@@ -41,28 +48,41 @@ class AgentLauncher:
         name: str,
         function,
         description: str,
-        parameters: dict[str, ToolParamSchema],
+        parameters: dict[str, ToolParamSchema] | None = None,
         context_key: str | None = None,
     ):
         self.tool_runtime.register(
-            name, function, description, parameters, context_key=context_key
+            name,
+            function,
+            description,
+            parameters if parameters else {},
+            context_key=context_key,
         )
 
     def tool(
         self,
         name: str,
         description: str,
-        parameters: dict[str, dict],
+        parameters: dict[str, dict] | None = None,
         *,
         context_key: str | None = None,
     ):
         def decorator(func):
+            chosen_key = context_key
+            if chosen_key is None:
+                sig = inspect.signature(func)
+                for param in sig.parameters.values():
+                    if param.annotation is EventContext:
+                        chosen_key = param.name
+                        break
             self.register_tool(
                 name,
                 func,
                 description,
-                {p: ToolParamSchema(**s) for p, s in parameters.items()},
-                context_key=context_key,
+                {p: ToolParamSchema(**s) for p, s in parameters.items()}
+                if parameters
+                else {},
+                context_key=chosen_key,
             )
 
             return func

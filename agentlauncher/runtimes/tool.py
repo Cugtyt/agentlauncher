@@ -162,7 +162,7 @@ class ToolRuntime(RuntimeType):
                     error=str(e),
                 )
             )
-            raise e
+            return f"Error executing tool '{tool_name}': {e}"
 
     async def handle_tools_exec_request(self, event: ToolsExecRequestEvent) -> None:
         missing_tools = [

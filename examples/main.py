@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from helper import register_conversation_counter, register_tools
 from gpt import gpt_handler
+from helper import register_conversation_counter, register_tools
 
 from agentlauncher import AgentLauncher
 from agentlauncher.events import MessagesAddEvent
