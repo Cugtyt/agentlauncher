@@ -17,9 +17,12 @@ class ConversationSession(ABC):
     async def load(self) -> list[Message]: ...
 
     @abstractmethod
-    async def process(
+    async def prepare_messages(
         self,
     ) -> None: ...
 
     @abstractmethod
     async def append(self, messages: list[Message]) -> None: ...
+
+    @abstractmethod
+    async def close(self) -> None: ...

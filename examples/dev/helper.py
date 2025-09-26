@@ -247,6 +247,6 @@ class TestConversationSession(InMemoryConversationSession):
     def create(cls, session_context=None) -> "TestConversationSession":
         return cls()
 
-    async def process(self) -> None:
-        await super().process()
+    async def prepare_messages(self) -> None:
+        await super().prepare_messages()
         logging.getLogger(__name__).warning("Processing conversation session...")

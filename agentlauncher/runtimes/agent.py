@@ -29,7 +29,11 @@ from agentlauncher.llm_interface import (
     ToolSchema,
     UserMessage,
 )
-from agentlauncher.session import ConversationSession, SessionContext
+from agentlauncher.session import (
+    ConversationSession,
+    InMemoryConversationSession,
+    SessionContext,
+)
 from agentlauncher.shared import (
     PRIMARY_AGENT_SYSTEM_PROMPT,
     get_primary_agent_id,
@@ -51,7 +55,6 @@ class Agent:
     def __init__(
         self,
         agent_id: str,
-        conversation: list[Message],
         tool_schemas: list[ToolSchema],
         event_bus: EventBus,
         conversation_session: ConversationSession,
@@ -63,8 +66,11 @@ class Agent:
         self.event_bus = event_bus
         self.conversation_session = conversation_session
 
+    async def close(self) -> None:
+        await self.conversation_session.close()
+
     async def _build_message_list(self) -> list[Message]:
-        await self.conversation_session.process()
+        await self.conversation_session.prepare_messages()
         base = await self.conversation_session.load()
         return (
             [SystemMessage(content=self.system_prompt)] + base
@@ -136,9 +142,14 @@ class Agent:
 
 
 class AgentRuntime(RuntimeType):
-    def __init__(self, event_bus: EventBus, conversation_session: ConversationSession):
+    def __init__(
+        self,
+        event_bus: EventBus,
+        conversation_session: ConversationSession,
+    ):
         super().__init__(event_bus)
-        self.conversation_session = conversation_session
+        self.primary_agent_conversation_session = conversation_session
+        self.sub_agent_conversation_session = InMemoryConversationSession()
         self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_create)
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)
@@ -166,7 +177,6 @@ class AgentRuntime(RuntimeType):
             AgentCreateEvent(
                 agent_id=event.agent_id,
                 task=event.task,
-                conversation=event.conversation or [],
                 system_prompt=event.system_prompt or PRIMARY_AGENT_SYSTEM_PROMPT,
                 tool_schemas=event.tool_schemas,
             )
@@ -181,15 +191,18 @@ class AgentRuntime(RuntimeType):
                 )
                 agent = None
             else:
+                if is_primary_agent(event.agent_id):
+                    session = self.primary_agent_conversation_session.create(
+                        self.session_context.get(event.agent_id, {})
+                    )
+                else:
+                    session = self.sub_agent_conversation_session.create()
                 agent = Agent(
                     agent_id=event.agent_id,
-                    conversation=event.conversation or [],
                     system_prompt=event.system_prompt,
                     event_bus=self.event_bus,
                     tool_schemas=event.tool_schemas,
-                    conversation_session=self.conversation_session.create(
-                        self.session_context[event.agent_id]
-                    ),
+                    conversation_session=session,
                 )
                 self.agents[event.agent_id] = agent
                 error_event = None
@@ -242,6 +255,7 @@ class AgentRuntime(RuntimeType):
         ] = []
         async with self._agents_lock:
             if event.agent_id in self.agents:
+                await self.agents[event.agent_id].close()
                 del self.agents[event.agent_id]
                 events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
                 if is_primary_agent(event.agent_id):
@@ -264,7 +278,9 @@ class AgentRuntime(RuntimeType):
         events_to_emit = []
         async with self._agents_lock:
             if event.agent_id and event.agent_id in self.agents:
+                await self.agents[event.agent_id].close()
                 del self.agents[event.agent_id]
+                self.session_context.pop(event.agent_id, None)
                 events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
         events_to_emit.append(
             TaskFinishEvent(
@@ -278,6 +294,8 @@ class AgentRuntime(RuntimeType):
     async def handle_launcher_shutdown(self, event: AgentLauncherShutdownEvent) -> None:
         async with self._agents_lock:
             agent_ids = list(self.agents.keys())
+            for agent in self.agents.values():
+                await agent.close()
             self.agents.clear()
             self.session_context.clear()
         for agent_id in agent_ids:
@@ -287,6 +305,7 @@ class AgentRuntime(RuntimeType):
         should_emit_deleted = False
         async with self._agents_lock:
             if is_primary_agent(event.agent_id) and event.agent_id in self.agents:
+                await self.agents[event.agent_id].close()
                 del self.agents[event.agent_id]
                 self.session_context.pop(event.agent_id, None)
                 should_emit_deleted = True
@@ -298,6 +317,7 @@ class AgentRuntime(RuntimeType):
         async with self._agents_lock:
             for agent_id in list(self.agents.keys()):
                 if get_primary_agent_id(agent_id) == event.agent_id:
+                    await self.agents[agent_id].close()
                     del self.agents[agent_id]
                     to_delete.append(agent_id)
                     self.session_context.pop(agent_id, None)

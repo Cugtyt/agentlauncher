@@ -5,6 +5,7 @@ from gpt import gpt_handler
 from helper import TestConversationSession, register_tools
 
 from agentlauncher import AgentLauncher
+from agentlauncher.eventbus.type import EventType
 from agentlauncher.events import MessagesAddEvent
 from agentlauncher.llm_interface import (
     AssistantMessage,
@@ -29,7 +30,7 @@ async def main() -> None:
     launcher = AgentLauncher(conversation_session=TestConversationSession())
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.WARNING)
-    # logging.getLogger("agentlauncher").setLevel(logging.INFO)
+    logging.getLogger("agentlauncher").setLevel(logging.INFO)
     logging.getLogger(__name__).setLevel(logging.INFO)
 
     register_tools(launcher)
@@ -74,8 +75,8 @@ async def main() -> None:
             }"
         )
 
-    hook = asyncio.Queue()
-    final_result = await launcher.run("hello", event_hook=hook)
+    hook: asyncio.Queue[EventType | None] = asyncio.Queue()
+    final_result = await launcher.run(test_task, event_hook=hook)
     while True:
         event = await hook.get()
         if event is None:

@@ -180,7 +180,7 @@ class ToolRuntime(RuntimeType):
         tasks = [
             self.tool_exec(
                 tool_name=tool_call.tool_name,
-                arguments=tool_call.arguments,
+                arguments=tool_call.arguments.copy(),
                 agent_id=event.agent_id,
                 tool_call_id=tool_call.tool_call_id,
                 context=EventContext(agent_id=event.agent_id, event_bus=self.event_bus),

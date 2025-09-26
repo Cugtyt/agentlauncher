@@ -48,7 +48,7 @@ class EventBus:
         if hook is None:
             return
         try:
-            await hook.put(event)
+            hook.put_nowait(event)
         except Exception:
             self._logger.exception("Hook failed for agent %s", event.agent_id)
 

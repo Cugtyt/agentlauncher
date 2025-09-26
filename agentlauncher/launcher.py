@@ -171,7 +171,6 @@ class AgentLauncher:
                 TaskCreateEvent(
                     agent_id=agent_id,
                     task=task,
-                    conversation=history,
                     system_prompt=self.system_prompt,
                     tool_schemas=tool_schemas,
                 )
