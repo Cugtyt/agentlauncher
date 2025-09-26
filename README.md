@@ -1,93 +1,172 @@
 # AgentLauncher
 
-AgentLauncher is an event-driven, multi-agent framework for solving complex tasks by dynamically generating sub-agents.
-The main agent coordinates strategy, while sub-agents handle specialized tasks.
-Agent lifecycles are managed automatically, similar to jobs in Kubernetes—sub-agents are lightweight and ephemeral.
+AgentLauncher is a high-performance, stateless agent runtime framework that standardizes agent lifecycle management through event-driven orchestration. Built on Python asyncio with uvloop acceleration, it handles many concurrent task requests at full speed while maintaining responsive event processing. The framework accepts tasks and triggers the system to provision agents with a primary-agent-first pattern—optionally spawning ephemeral sub-agents to handle well-bounded subtasks and reduce primary agent workload. Its stateless design enables horizontal scaling across multiple servers for distributed deployments. The framework is fully extensible: listen to any lifecycle event, extend the event system, or integrate custom tools to support diverse scenarios.
 
+## Architecture & core features
 
-## How It Works
+- **Stateless runtime framework** – accepts tasks and provisions agents on-demand with standardized lifecycle management, no persistent state between invocations.
+- **Event-driven orchestration** – every lifecycle milestone emits structured events on a shared bus, enabling observability, auditing, custom workflows, or external system integration.
+- **Primary agent + ephemeral helpers** – the main agent retains task ownership while the framework opportunistically provisions helper agents for contained subtasks, reducing primary agent cognitive load.
+- **Extensible event system** – listen to any built-in event, emit custom events, or extend the event schema to support domain-specific orchestration patterns.
+- **Pluggable tool ecosystem** – register domain-specific tools, swap LLM processors, or integrate custom runtimes without modifying the core framework.
+- **High-performance async runtime** – built on Python asyncio with uvloop acceleration to handle concurrent task requests at scale, enabling full-speed event processing across many simultaneous agent workflows.
+- **Horizontally scalable** – stateless design allows deployment across multiple servers or containers for distributed workloads and load balancing.
 
-1. **Task Initialization**: Launching AgentLauncher with a task triggers a `TaskCreateEvent`.
-2. **Agent Creation**: `AgentRuntime` responds and triggers `AgentCreateEvent`.
-3. **Main Agent Management**: `AgentManager` creates the main agent (if needed) and triggers `AgentStartEvent`.
-4. **Agent Startup**: The agent logs the initial message (`MessageAddEvent`) and requests an LLM response (`LLMRequestEvent`).
-5. **LLM Interaction**: `LLMRuntime` calls the LLM API, triggering `LLMResponseEvent`.
-6. **Message Handling**: The agent logs the LLM response and may request tool execution (`ToolsExecRequestEvent`).
-7. **Tool Execution**: `ToolRuntime` executes tools, triggering `ToolExecStartEvent`, `ToolExecFinishEvent`, and `ToolsExecResultsEvent`.
-8. **Result Processing**: The agent processes tool results and may request further LLM responses, repeating the cycle.
-9. **Task Completion**: The agent triggers `AgentFinishEvent`. `AgentRuntime` marks completion, triggers `TaskFinishEvent`, and cleans up sub-agents.
-10. **Final Output**: AgentLauncher returns the result. New tasks restart the flow.
+### Standardized lifecycle
 
+1. **Task acceptance** – `launcher.run` emits `TaskCreateEvent`, triggering the runtime to provision agents with the specified system prompt, conversation history, and available tool schemas.
+2. **Primary agent instantiation** – `AgentRuntime` creates the main agent and announces it with `AgentStartEvent`.
+3. **Sub-agent provisioning (optional)** – when the primary agent determines that subtasks can reduce its workload, the framework spawns helper agents, tracks their progress through intermediate events, and retires them upon completion.
+4. **Agent-runtime interaction** – agents emit `MessagesAddEvent` for prompts, then request completions via `LLMRequestEvent`.
+5. **LLM processing** – `LLMRuntime` dispatches to the configured processor, emitting streaming events such as `MessageStartStreamingEvent` and `MessageDoneStreamingEvent`.
+6. **Tool execution** – when agents invoke tools, `ToolRuntime` issues `ToolExecStartEvent`, `ToolExecFinishEvent`, and `ToolsExecResultsEvent` before routing results back to the requesting agent.
+7. **Task completion** – once the primary agent completes its work, it publishes `AgentFinishEvent`; `TaskFinishEvent` signals final resolution and unblocks the caller.
 
-## Features
+The event contracts live under `agentlauncher/events`, while runtime implementations sit in `agentlauncher/runtimes`. Hooks and subscribers receive the same event objects.
 
-- **Multi-Agent System**: Main agent delegates to sub-agents; standardized lifecycle and interactions.
-- **Event-Driven Architecture**: All agent behavior is event-based.
-- **Dynamic Agent Management**: Agents spawn sub-agents for specialized tasks; lifecycles are automatic.
-- **Modular & Extensible**: Easily add new tools and LLM handlers by subscribing to events.
-- **Fully Asynchronous**: Built on `asyncio` for efficient, non-blocking event handling.
+### Key event types
+- **Agent lifecycle**: `AgentStartEvent`, `AgentFinishEvent`, `AgentDeletedEvent`
+- **Task management**: `TaskCreateEvent`, `TaskFinishEvent`, `TaskCancelEvent`  
+- **LLM interaction**: `LLMRequestEvent`, `LLMResponseEvent`, `MessageDeltaStreamingEvent`
+- **Tool execution**: `ToolExecStartEvent`, `ToolExecFinishEvent`, `ToolsExecResultsEvent`
 
+## Installation & setup
 
+**Prerequisites:**
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) package manager
 
-## Example Usage
+**Install:**
+```bash
+git clone https://github.com/Cugtyt/agentlauncher.git
+cd agentlauncher
+uv sync
+```
 
-See `examples/dev/main.py` for a usage example. The snippet below mirrors the explicit registration flow used in the repo:
+**LLM Configuration:**
+The framework requires an LLM processor. The included examples use Azure OpenAI via `DefaultAzureCredential`:
+- Set `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET` environment variables, or
+- Use managed identity with Azure OpenAI access
+- Update the endpoint in `examples/dev/gpt.py` if needed
+
+For other LLM providers, implement the `LLMProcessor` interface (see `examples/dev/mock_gpt.py` for reference).
+
+## Examples
+
+### FastAPI server demo
+
+The demo server (`examples/server/main.py`) demonstrates production-ready HTTP integration. It provides both synchronous and streaming endpoints:
+
+```bash
+uv run uvicorn examples.server.main:app --reload
+```
+
+Smoke-test the endpoints from another terminal:
+
+```bash
+curl -sS http://127.0.0.1:8000/health
+
+curl -sS -X POST http://127.0.0.1:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Plan a team offsite"}'
+
+curl -sS -N -X POST http://127.0.0.1:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Plan a team offsite", "stream": true}'
+```
+
+**Streaming response format:**
+```
+AgentStartEvent
+MessagesAddEvent  
+MessageStartStreamingEvent
+MessageDoneStreamingEvent
+ToolExecStartEvent
+ToolExecFinishEvent
+AgentFinishEvent
+TaskFinishEvent
+```
+
+The server passes an `asyncio.Queue` directly to `launcher.run` as the `event_hook`, making it easy to adapt for WebSockets, Server-Sent Events, or other real-time transports.
+
+### Direct integration
+
+The `examples/dev` folder provides reusable building blocks. Here's a minimal integration with event streaming:
 
 ```python
 import asyncio
 
 from agentlauncher import AgentLauncher
-from agentlauncher.events import MessageDeltaStreamingEvent
-from agentlauncher.llm_interface import ToolParamSchema
-from my_handlers import my_llm_handler
+from agentlauncher.eventbus.type import EventType
+from examples.dev.gpt import gpt_handler
+from examples.dev.helper import register_tools
+
+
+async def stream_events(queue: asyncio.Queue[EventType | None]) -> None:
+    while (event := await queue.get()) is not None:
+        print(event.__class__.__name__)
 
 
 async def main() -> None:
     launcher = AgentLauncher()
+    register_tools(launcher)
+    launcher.set_primary_agent_llm_processor(gpt_handler)
 
-    def calculate_tool(a: int, b: int, c: int) -> str:
-        return str(a * b + c)
+    events: asyncio.Queue[EventType | None] = asyncio.Queue()
+    consumer = asyncio.create_task(stream_events(events))
 
-    launcher.register_tool(
-        name="calculate",
-        function=calculate_tool,
-        description="Calculate the result of a * b + c.",
-        parameters={
-            "a": ToolParamSchema(type="integer", description="Multiplicand", required=True),
-            "b": ToolParamSchema(type="integer", description="Multiplier", required=True),
-            "c": ToolParamSchema(type="integer", description="Addend", required=True),
-        },
+    result = await launcher.run(
+        task="Plan a team offsite",
+        event_hook=events,
     )
 
-    launcher.set_primary_agent_llm_processor(my_llm_handler)
-    # Optionally set a distinct processor for spawned sub-agents
-    # launcher.set_sub_agent_llm_processor(my_sub_agent_handler)
-
-    @launcher.subscribe_event(MessageDeltaStreamingEvent)
-    async def handle_message_delta_streaming_event(event: MessageDeltaStreamingEvent):
-        print(event.delta, end="", flush=True)
-
-    # Register any extra runtimes that should react to events
-    # launcher.register_runtime(MyCustomRuntime)
-
-    result = await launcher.run("Book a trip to Tokyo in April")
-    print("Final Result:\n", result)
+    await consumer
+    print("Final result:", result)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### FastAPI demo server
+Passing a queue as the `event_hook` lets you reuse the same consumption pattern as the FastAPI example. The launcher automatically pushes `None` when the task finishes, so consumers can exit cleanly.
 
-The `examples/server/main.py` module exposes an HTTP API powered by FastAPI. It
-accepts task submissions and can either return the final result or stream live
-events from the agent workflow using newline-delimited JSON. Run it locally with:
+## Extension patterns
 
-```bash
-uv run uvicorn examples.server.main:app --reload
+### Custom tools
+```python
+@launcher.tool(
+    name="my_tool", 
+    description="My custom tool",
+    parameters={"param": {"type": "string", "required": True}}
+)
+def my_tool(param: str, ctx: EventContext) -> str:
+    return f"Processed: {param}"
 ```
 
-Use `POST /tasks` with a JSON payload such as `{"task": "Plan a team offsite"}`
-to receive the final answer, or add `"stream": true` to opt into streaming
-events.
+### Event listeners
+```python
+@launcher.subscribe_event(AgentStartEvent)
+async def on_agent_start(event: AgentStartEvent):
+    print(f"Agent {event.agent_id} started")
+```
+
+### Custom LLM processors
+```python
+async def my_llm_processor(
+    messages: list[Message], 
+    tools: list[ToolSchema], 
+    context: EventContext
+) -> list[Message]:
+    # Your LLM integration logic
+    return [AssistantMessage(content="Response")]
+
+launcher.set_primary_agent_llm_processor(my_llm_processor)
+```
+
+### Conversation middleware
+```python
+@launcher.conversation_processor()
+async def conversation_filter(conversation: list[Message]) -> list[Message]:
+    # Filter, transform, or log conversation history
+    return conversation[-10:]  # Keep last 10 messages
+```
