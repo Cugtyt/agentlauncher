@@ -1,7 +1,5 @@
 import asyncio
 from collections.abc import AsyncIterator
-from dataclasses import asdict, is_dataclass
-from typing import Any
 
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -33,19 +31,6 @@ class TaskRequest(BaseModel):
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
-
-
-def _serialise_event(event: object) -> dict[str, Any]:
-    if is_dataclass(event) and not isinstance(event, type):
-        payload = asdict(event)
-    else:
-        payload = {
-            key: value for key, value in vars(event).items() if not key.startswith("_")
-        }
-    return {
-        "type": type(event).__name__,
-        "payload": payload,
-    }
 
 
 async def _stream_task(task: str) -> StreamingResponse:
