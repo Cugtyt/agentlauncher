@@ -5,7 +5,7 @@ from typing import Any
 
 from agentlauncher.shared import get_primary_agent_id
 
-from .type import EventHandler, EventHookCallback, EventType
+from .type import EventBusHook, EventHandler, EventType
 
 
 class EventBus:
@@ -13,7 +13,7 @@ class EventBus:
         self._subscribers: dict[type[EventType], list[EventHandler[Any]]] = defaultdict(
             list
         )
-        self._hooks: dict[str, EventHookCallback] = {}
+        self._hooks: dict[str, EventBusHook] = {}
         self._hook_lock = asyncio.Lock()
         self._logger = logging.getLogger(__name__)
 
@@ -22,13 +22,15 @@ class EventBus:
     ) -> None:
         self._subscribers[event_type].append(handler)
 
-    async def add_hook(self, agent_id: str, hook: EventHookCallback) -> None:
+    async def add_hook(self, agent_id: str, hook: EventBusHook) -> None:
         async with self._hook_lock:
             self._hooks[agent_id] = hook
 
     async def remove_hook(self, agent_id: str) -> None:
         async with self._hook_lock:
-            self._hooks.pop(agent_id, None)
+            hook = self._hooks.pop(agent_id, None)
+            if hook:
+                await hook.put(None)
 
     async def emit(self, event: EventType) -> None:
         event_type = type(event)
@@ -46,7 +48,7 @@ class EventBus:
         if hook is None:
             return
         try:
-            await hook(event)
+            await hook.put(event)
         except Exception:
             self._logger.exception("Hook failed for agent %s", event.agent_id)
 

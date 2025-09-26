@@ -31,7 +31,7 @@ Agent lifecycles are managed automatically, similar to jobs in Kubernetes—sub-
 
 ## Example Usage
 
-See `examples/main.py` for a usage example. The snippet below mirrors the explicit registration flow used in the repo:
+See `examples/dev/main.py` for a usage example. The snippet below mirrors the explicit registration flow used in the repo:
 
 ```python
 import asyncio
@@ -77,3 +77,17 @@ async def main() -> None:
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+### FastAPI demo server
+
+The `examples/server/main.py` module exposes an HTTP API powered by FastAPI. It
+accepts task submissions and can either return the final result or stream live
+events from the agent workflow using newline-delimited JSON. Run it locally with:
+
+```bash
+uv run uvicorn examples.server.main:app --reload
+```
+
+Use `POST /tasks` with a JSON payload such as `{"task": "Plan a team offsite"}`
+to receive the final answer, or add `"stream": true` to opt into streaming
+events.

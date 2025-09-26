@@ -4,12 +4,13 @@ from typing import Any
 
 from agentlauncher.eventbus import (
     EventBus,
+    EventBusHook,
     EventContext,
     EventHandler,
-    EventHookCallback,
     EventType,
 )
 from agentlauncher.events import (
+    AgentLauncherRunEvent,
     AgentLauncherShutdownEvent,
     AgentLauncherStopEvent,
     TaskCancelEvent,
@@ -127,25 +128,25 @@ class AgentLauncher:
         return decorator
 
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
+        await self.event_bus.emit(
+            AgentLauncherStopEvent(agent_id=event.agent_id, result=event.result or "")
+        )
         async with self._result_lock:
             future = self._final_results.get(event.agent_id)
             if future is None or future.done():
                 return
             future.set_result(event.result or "")
 
-        await self.event_bus.emit(
-            AgentLauncherStopEvent(agent_id=event.agent_id, result=event.result or "")
-        )
-
     async def run(
         self,
         task: str,
         history: list[Message] | None = None,
         timeout: float | None = 600.0,
-        event_callback: EventHookCallback | None = None,
+        event_hook: EventBusHook | None = None,
     ) -> str | None:
         agent_id = generate_primary_agent_id()
         future = asyncio.get_running_loop().create_future()
+        await self.event_bus.emit(AgentLauncherRunEvent(agent_id=agent_id, task=task))
 
         async with self._result_lock:
             self.tool_runtime.setup_sub_agent_tool()
@@ -162,8 +163,8 @@ class AgentLauncher:
         result: str | None = None
 
         try:
-            if event_callback is not None:
-                await self.event_bus.add_hook(agent_id, event_callback)
+            if event_hook is not None:
+                await self.event_bus.add_hook(agent_id, event_hook)
 
             await self.event_bus.emit(
                 TaskCreateEvent(

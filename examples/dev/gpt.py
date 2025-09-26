@@ -16,7 +16,7 @@ from openai.types.responses import (
 )
 from openai.types.responses.response_input_param import FunctionCallOutput
 
-from agentlauncher.eventbus import EventBus
+from agentlauncher.eventbus import EventBus, EventContext
 from agentlauncher.events import (
     MessageDeltaStreamingEvent,
     MessageDoneStreamingEvent,
@@ -57,8 +57,7 @@ async def gpt_handler(
         | ToolResultMessage
     ],
     tools: list[ToolSchema],
-    agent_id: str,
-    event_bus: EventBus,
+    context: EventContext,
 ) -> ResponseMessageList:
     def convert_message(
         message: UserMessage
@@ -123,22 +122,22 @@ async def gpt_handler(
     result: ResponseMessageList = []
     for output in response.output:
         if isinstance(output, ResponseFunctionToolCall):
-            await event_bus.emit(
+            await context.event_bus.emit(
                 ToolCallNameStreamingEvent(
-                    agent_id=agent_id,
+                    agent_id=context.agent_id,
                     tool_call_id=output.call_id,
                     tool_name=output.name,
                 )
             )
-            await event_bus.emit(
+            await context.event_bus.emit(
                 ToolCallArgumentsStartStreamingEvent(
-                    agent_id=agent_id,
+                    agent_id=context.agent_id,
                     tool_call_id=output.call_id,
                 )
             )
-            await event_bus.emit(
+            await context.event_bus.emit(
                 ToolCallArgumentsDoneStreamingEvent(
-                    agent_id=agent_id,
+                    agent_id=context.agent_id,
                     tool_call_id=output.call_id,
                     arguments=output.arguments,
                 )
@@ -154,9 +153,11 @@ async def gpt_handler(
             if not output.content:
                 continue
             text = output.content[0].text  # type: ignore[index]
-            await event_bus.emit(MessageStartStreamingEvent(agent_id=agent_id))
-            await event_bus.emit(
-                MessageDoneStreamingEvent(agent_id=agent_id, message=text)
+            await context.event_bus.emit(
+                MessageStartStreamingEvent(agent_id=context.agent_id)
+            )
+            await context.event_bus.emit(
+                MessageDoneStreamingEvent(agent_id=context.agent_id, message=text)
             )
             result.append(AssistantMessage(content=text))
 

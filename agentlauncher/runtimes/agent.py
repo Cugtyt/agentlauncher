@@ -85,9 +85,7 @@ class Agent:
         else:
             self._message_cache = cast(
                 list[Message],
-                self.conversation_processor(
-                    list(self._message_cache), context
-                ),
+                self.conversation_processor(list(self._message_cache), context),
             )
 
     async def start(self, task: str) -> None:
@@ -256,10 +254,9 @@ class AgentRuntime(RuntimeType):
         ] = []
         async with self._agents_lock:
             if event.agent_id in self.agents:
-                if not is_primary_agent(event.agent_id):
-                    del self.agents[event.agent_id]
-                    events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
-                else:
+                del self.agents[event.agent_id]
+                events_to_emit.append(AgentDeletedEvent(agent_id=event.agent_id))
+                if is_primary_agent(event.agent_id):
                     events_to_emit.append(
                         TaskFinishEvent(agent_id=event.agent_id, result=event.result)
                     )

@@ -56,7 +56,7 @@ async def main() -> None:
                     f"result: {message.result}"
                 )
 
-    async def handle_event(event):
+    def handle_event(event):
         colors = [
             "\033[94m",  # Blue
             "\033[92m",  # Green
@@ -74,15 +74,20 @@ async def main() -> None:
                 reset_color
             }"
         )
-
-    # final_result = await launcher.run(test_task, event_callback=handle_event)
-    # if final_result is not None:
-    #     print("Final Result:\n", final_result)
-    tasks = [
-        asyncio.create_task(launcher.run(test_task, event_callback=handle_event))
-        for _ in range(2)
-    ]
-    await asyncio.gather(*tasks)
+    hook = asyncio.Queue()
+    final_result = await launcher.run("hello", event_hook=hook)
+    while True:
+        event = await hook.get()
+        if event is None:
+            break
+        handle_event(event)
+    if final_result is not None:
+        print("Final Result:\n", final_result)
+    # tasks = [
+    #     asyncio.create_task(launcher.run(test_task, event_hook=handle_event))
+    #     for _ in range(2)
+    # ]
+    # await asyncio.gather(*tasks)
 
     # for result in results:
     #     print("Result:\n", result)
