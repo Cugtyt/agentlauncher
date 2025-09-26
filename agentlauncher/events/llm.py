@@ -4,23 +4,15 @@ from dataclasses import dataclass
 from agentlauncher.eventbus import EventType
 from agentlauncher.llm_interface import (
     AssistantMessage,
-    SystemMessage,
+    Message,
     ToolCallMessage,
-    ToolResultMessage,
     ToolSchema,
-    UserMessage,
 )
 
 
 @dataclass
 class LLMRequestEvent(EventType):
-    messages: list[
-        UserMessage
-        | AssistantMessage
-        | SystemMessage
-        | ToolCallMessage
-        | ToolResultMessage
-    ]
+    messages: list[Message]
     tool_schemas: list[ToolSchema]
     retry_count: int = 0
 

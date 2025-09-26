@@ -1,10 +1,10 @@
-from asyncio import Lock, iscoroutinefunction
+import asyncio
+from asyncio import Lock
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
 from agentlauncher.eventbus import EventBus
 from agentlauncher.events import (
-    AgentConversationProcessedEvent,
     AgentCreateEvent,
     AgentDeletedEvent,
     AgentFinishEvent,
@@ -53,7 +53,6 @@ class Agent:
     def __init__(
         self,
         agent_id: str,
-        task: str,
         conversation: list[Message],
         tool_schemas: list[ToolSchema],
         event_bus: EventBus,
@@ -61,52 +60,47 @@ class Agent:
         conversation_processor: ConversationProcessor | None = None,
     ):
         self.agent_id = agent_id
-        self.task = task
-        self.conversation = conversation
+        self._message_cache: list[Message] = list(conversation)
         self.system_prompt = system_prompt
         self.tool_schemas = tool_schemas
         self.event_bus = event_bus
         self.conversation_processor = conversation_processor
 
-    async def start(self) -> None:
+    async def _build_message_list(self) -> list[Message]:
+        await self._process_conversation()
+        base = list(self._message_cache)
+        return (
+            [SystemMessage(content=self.system_prompt)] + base
+            if self.system_prompt
+            else base
+        )
+
+    async def _process_conversation(self):
+        if not self.conversation_processor:
+            return
+        if asyncio.iscoroutinefunction(self.conversation_processor):
+            self._message_cache = await self.conversation_processor(
+                list(self._message_cache), self.agent_id, self.event_bus
+            )
+        else:
+            self._message_cache = cast(
+                list[Message],
+                self.conversation_processor(
+                    list(self._message_cache), self.agent_id, self.event_bus
+                ),
+            )
+
+    async def start(self, task: str) -> None:
         await self.event_bus.emit(AgentStartEvent(agent_id=self.agent_id))
-        user_message = UserMessage(content=self.task)
-        self.conversation = [
-            *self.conversation,
-            user_message,
-        ]
+        user_message = UserMessage(content=task)
+        self._message_cache.append(user_message)
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=[user_message])
         )
-        if not self.system_prompt:
-            message_list = [*self.conversation]
-        else:
-            message_list = [
-                SystemMessage(content=self.system_prompt),
-                *self.conversation,
-            ]
-        if self.conversation_processor:
-            if iscoroutinefunction(self.conversation_processor):
-                processed_message_list = await self.conversation_processor(
-                    message_list, self.agent_id, self.event_bus
-                )
-            else:
-                processed_message_list = self.conversation_processor(
-                    message_list, self.agent_id, self.event_bus
-                )
-            processed_message_list = cast(list[Message], processed_message_list)
-            await self.event_bus.emit(
-                AgentConversationProcessedEvent(
-                    agent_id=self.agent_id,
-                    original_messages=message_list,
-                    processed_messages=processed_message_list,
-                )
-            )
-            message_list = processed_message_list
         await self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
-                messages=message_list,
+                messages=await self._build_message_list(),
                 tool_schemas=self.tool_schemas,
             )
         )
@@ -117,7 +111,7 @@ class Agent:
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=response)
         )
-        self.conversation.extend(response)
+        self._message_cache.extend(response)
         tool_calls = [
             ToolCall(msg.tool_call_id, msg.tool_name, msg.arguments)
             for msg in response
@@ -148,18 +142,12 @@ class Agent:
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=tool_result_messages)
         )
-        self.conversation.extend(tool_result_messages)
-        if not self.system_prompt:
-            message_list = [*self.conversation]
-        else:
-            message_list = [
-                SystemMessage(content=self.system_prompt),
-                *self.conversation,
-            ]
+        self._message_cache.extend(tool_result_messages)
+
         await self.event_bus.emit(
             LLMRequestEvent(
                 agent_id=self.agent_id,
-                messages=message_list,
+                messages=await self._build_message_list(),
                 tool_schemas=self.tool_schemas,
             )
         )
@@ -211,7 +199,6 @@ class AgentRuntime(RuntimeType):
             else:
                 agent = Agent(
                     agent_id=event.agent_id,
-                    task=event.task,
                     conversation=event.conversation or [],
                     system_prompt=event.system_prompt,
                     event_bus=self.event_bus,
@@ -228,7 +215,7 @@ class AgentRuntime(RuntimeType):
         if agent is None:
             return
 
-        await agent.start()
+        await agent.start(event.task)
 
     async def handle_llm_response(self, event: LLMResponseEvent) -> None:
         async with self._agents_lock:
