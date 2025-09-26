@@ -5,10 +5,7 @@ from agentlauncher import (
     AgentLauncher,
 )
 from agentlauncher.eventbus.context import EventContext
-from agentlauncher.llm_interface import (
-    AssistantMessage,
-    Message,
-)
+from agentlauncher.session.inmem_conv import InMemoryConversationSession
 
 
 def register_tools(launcher: AgentLauncher) -> None:
@@ -245,27 +242,11 @@ def register_tools(launcher: AgentLauncher) -> None:
         )
 
 
-def register_message_handlers(launcher: AgentLauncher) -> None:
-    @launcher.conversation_processor()
-    async def trim_conversation_handler(
-        conversation: list[Message],
-    ) -> list[Message]:
-        max_messages = 10
-        if len(conversation) > max_messages and isinstance(
-            conversation[-1], AssistantMessage
-        ):
-            print(f"{'>' * 20} Trimming conversation to {max_messages} messages.")
-            return conversation[-max_messages:]
-        return conversation
+class TestConversationSession(InMemoryConversationSession):
+    @classmethod
+    def create(cls, session_context=None) -> "TestConversationSession":
+        return cls()
 
-
-def register_conversation_counter(launcher: AgentLauncher) -> None:
-    @launcher.conversation_processor()
-    async def conversation_counter(
-        conversation: list[Message], context: EventContext
-    ) -> list[Message]:
-        logger = logging.getLogger(__name__)
-        logger.info(
-            f"[{context.agent_id}] Conversation length: {len(conversation)} messages."
-        )
-        return conversation
+    async def process(self) -> None:
+        await super().process()
+        logging.getLogger(__name__).warning("Processing conversation session...")

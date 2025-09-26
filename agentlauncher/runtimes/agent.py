@@ -1,7 +1,5 @@
-import asyncio
 from asyncio import Lock
 from collections.abc import Awaitable, Callable, Sequence
-from typing import cast
 
 from agentlauncher.eventbus import EventBus, EventContext
 from agentlauncher.events import (
@@ -31,6 +29,7 @@ from agentlauncher.llm_interface import (
     ToolSchema,
     UserMessage,
 )
+from agentlauncher.session import ConversationSession, SessionContext
 from agentlauncher.shared import (
     PRIMARY_AGENT_SYSTEM_PROMPT,
     get_primary_agent_id,
@@ -55,43 +54,28 @@ class Agent:
         conversation: list[Message],
         tool_schemas: list[ToolSchema],
         event_bus: EventBus,
+        conversation_session: ConversationSession,
         system_prompt: str | None = None,
-        conversation_processor: ConversationProcessor | None = None,
     ):
         self.agent_id = agent_id
-        self._message_cache: list[Message] = list(conversation)
         self.system_prompt = system_prompt
         self.tool_schemas = tool_schemas
         self.event_bus = event_bus
-        self.conversation_processor = conversation_processor
+        self.conversation_session = conversation_session
 
     async def _build_message_list(self) -> list[Message]:
-        await self._process_conversation()
-        base = list(self._message_cache)
+        await self.conversation_session.process()
+        base = await self.conversation_session.load()
         return (
             [SystemMessage(content=self.system_prompt)] + base
             if self.system_prompt
             else base
         )
 
-    async def _process_conversation(self):
-        if not self.conversation_processor:
-            return
-        context = EventContext(agent_id=self.agent_id, event_bus=self.event_bus)
-        if asyncio.iscoroutinefunction(self.conversation_processor):
-            self._message_cache = await self.conversation_processor(
-                list(self._message_cache), context
-            )
-        else:
-            self._message_cache = cast(
-                list[Message],
-                self.conversation_processor(list(self._message_cache), context),
-            )
-
     async def start(self, task: str) -> None:
         await self.event_bus.emit(AgentStartEvent(agent_id=self.agent_id))
         user_message = UserMessage(content=task)
-        self._message_cache.append(user_message)
+        await self.conversation_session.append([user_message])
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=[user_message])
         )
@@ -109,7 +93,7 @@ class Agent:
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=response)
         )
-        self._message_cache.extend(response)
+        await self.conversation_session.append(list(response))
         tool_calls = [
             ToolCall(msg.tool_call_id, msg.tool_name, msg.arguments)
             for msg in response
@@ -140,7 +124,7 @@ class Agent:
         await self.event_bus.emit(
             MessagesAddEvent(agent_id=self.agent_id, messages=tool_result_messages)
         )
-        self._message_cache.extend(tool_result_messages)
+        await self.conversation_session.append(list(tool_result_messages))
 
         await self.event_bus.emit(
             LLMRequestEvent(
@@ -152,8 +136,9 @@ class Agent:
 
 
 class AgentRuntime(RuntimeType):
-    def __init__(self, event_bus: EventBus):
+    def __init__(self, event_bus: EventBus, conversation_session: ConversationSession):
         super().__init__(event_bus)
+        self.conversation_session = conversation_session
         self.event_bus.subscribe(AgentCreateEvent, self.handle_agent_create)
         self.event_bus.subscribe(LLMResponseEvent, self.handle_llm_response)
         self.event_bus.subscribe(ToolsExecResultsEvent, self.handle_tools_exec_results)
@@ -168,12 +153,13 @@ class AgentRuntime(RuntimeType):
             AgentLauncherShutdownEvent, self.handle_launcher_shutdown
         )
         self.agents: dict[str, Agent] = {}
-        self.conversation_processor: ConversationProcessor | None = None
         self._agents_lock = Lock()
         self._cancelled_agents: set[str] = set()
+        self.session_context: dict[str, SessionContext] = {}
 
-    def set_conversation_processor(self, processor: ConversationProcessor) -> None:
-        self.conversation_processor = processor
+    async def add_session_context(self, agent_id: str, context: SessionContext) -> None:
+        async with self._agents_lock:
+            self.session_context[agent_id] = context
 
     async def handle_task_create(self, event: TaskCreateEvent) -> None:
         await self.event_bus.emit(
@@ -201,7 +187,9 @@ class AgentRuntime(RuntimeType):
                     system_prompt=event.system_prompt,
                     event_bus=self.event_bus,
                     tool_schemas=event.tool_schemas,
-                    conversation_processor=self.conversation_processor,
+                    conversation_session=self.conversation_session.create(
+                        self.session_context[event.agent_id]
+                    ),
                 )
                 self.agents[event.agent_id] = agent
                 error_event = None
@@ -291,6 +279,7 @@ class AgentRuntime(RuntimeType):
         async with self._agents_lock:
             agent_ids = list(self.agents.keys())
             self.agents.clear()
+            self.session_context.clear()
         for agent_id in agent_ids:
             await self.event_bus.emit(AgentDeletedEvent(agent_id=agent_id))
 
@@ -299,6 +288,7 @@ class AgentRuntime(RuntimeType):
         async with self._agents_lock:
             if is_primary_agent(event.agent_id) and event.agent_id in self.agents:
                 del self.agents[event.agent_id]
+                self.session_context.pop(event.agent_id, None)
                 should_emit_deleted = True
         if should_emit_deleted:
             await self.event_bus.emit(AgentDeletedEvent(agent_id=event.agent_id))
@@ -310,6 +300,7 @@ class AgentRuntime(RuntimeType):
                 if get_primary_agent_id(agent_id) == event.agent_id:
                     del self.agents[agent_id]
                     to_delete.append(agent_id)
+                    self.session_context.pop(agent_id, None)
             self._cancelled_agents.update(to_delete)
             self._cancelled_agents.add(event.agent_id)
         for agent_id in to_delete:

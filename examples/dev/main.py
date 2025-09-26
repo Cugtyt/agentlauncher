@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from gpt import gpt_handler
-from helper import register_conversation_counter, register_tools
+from helper import TestConversationSession, register_tools
 
 from agentlauncher import AgentLauncher
 from agentlauncher.events import MessagesAddEvent
@@ -26,7 +26,7 @@ Each step may require different tools or information sources. Provide a clear su
 
 
 async def main() -> None:
-    launcher = AgentLauncher()
+    launcher = AgentLauncher(conversation_session=TestConversationSession())
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.WARNING)
     # logging.getLogger("agentlauncher").setLevel(logging.INFO)
@@ -36,7 +36,6 @@ async def main() -> None:
     # register_message_handlers(launcher)
     launcher.set_primary_agent_llm_processor(gpt_handler)
     # launcher.register_runtime(StreamLoggingRuntime)
-    register_conversation_counter(launcher)
 
     # @launcher.subscribe_event(MessagesAddEvent)
     async def handle_messages_add_event(event: MessagesAddEvent):
@@ -74,6 +73,7 @@ async def main() -> None:
                 reset_color
             }"
         )
+
     hook = asyncio.Queue()
     final_result = await launcher.run("hello", event_hook=hook)
     while True:

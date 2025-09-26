@@ -25,6 +25,11 @@ from agentlauncher.runtimes import (
     RuntimeType,
     ToolRuntime,
 )
+from agentlauncher.session import (
+    ConversationSession,
+    InMemoryConversationSession,
+    SessionContext,
+)
 from agentlauncher.shared import PRIMARY_AGENT_SYSTEM_PROMPT, generate_primary_agent_id
 
 
@@ -33,10 +38,14 @@ class AgentLauncher:
         self,
         system_prompt: str = PRIMARY_AGENT_SYSTEM_PROMPT,
         sub_agent_tool: bool = True,
+        conversation_session: ConversationSession | None = None,
     ):
         self.event_bus = EventBus()
         self.system_prompt = system_prompt
-        self.agent_runtime = AgentRuntime(self.event_bus)
+        self.agent_runtime = AgentRuntime(
+            self.event_bus,
+            conversation_session=conversation_session or InMemoryConversationSession(),
+        )
         self.llm_runtime = LLMRuntime(self.event_bus)
         self.tool_runtime = ToolRuntime(self.event_bus, sub_agent_tool=sub_agent_tool)
         self.runtimes: list[RuntimeType] = []
@@ -117,16 +126,6 @@ class AgentLauncher:
 
         return decorator
 
-    def set_conversation_processor(self, function):
-        self.agent_runtime.set_conversation_processor(function)
-
-    def conversation_processor(self):
-        def decorator(func):
-            self.set_conversation_processor(func)
-            return func
-
-        return decorator
-
     async def handle_task_finish(self, event: TaskFinishEvent) -> None:
         await self.event_bus.emit(
             AgentLauncherStopEvent(agent_id=event.agent_id, result=event.result or "")
@@ -143,10 +142,12 @@ class AgentLauncher:
         history: list[Message] | None = None,
         timeout: float | None = 600.0,
         event_hook: EventBusHook | None = None,
+        session_context: SessionContext | None = None,
     ) -> str | None:
         agent_id = generate_primary_agent_id()
         future = asyncio.get_running_loop().create_future()
         await self.event_bus.emit(AgentLauncherRunEvent(agent_id=agent_id, task=task))
+        await self.agent_runtime.add_session_context(agent_id, session_context or {})
 
         async with self._result_lock:
             self.tool_runtime.setup_sub_agent_tool()
